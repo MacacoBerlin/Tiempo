@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tiempo Zaragoza</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+/* Una columna para el móvil. Arriba, un cielo que cambia con el tiempo y la frase del día.
+   Debajo, tres pestañas: Hoy, Mañana y Finde. */
+:root{
+  --bg:#ECF1F4; --surface:#FFFFFF; --ink:#12212B; --muted:#51636F; --line:#D3DDE3;
+  --accent:#1C5D8A; --accent-soft:#DCEAF3;
+  --good:#176B3E; --good-soft:#DDF0E5; --warn:#865400; --warn-soft:#F7EACB; --bad:#B03333; --bad-soft:#F8DEDE;
+  --c-sun:#D98E04; --c-cloud:#5C7384; --c-drop:#2B7BB9;
+  --kid:#6A4BB8; --kid-soft:#EEE9FA; --on-kid:#FFFFFF; --run-soft:#E3EEF6;
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0E1920; --surface:#16262F; --ink:#E7EFF4; --muted:#9FB3BF; --line:#2A3D49;
+    --accent:#7DBCE8; --accent-soft:#1C3646;
+    --good:#5CCB8D; --good-soft:#173A29; --warn:#E6B14F; --warn-soft:#3F3216; --bad:#F08A8A; --bad-soft:#442022;
+    --c-sun:#FFC247; --c-cloud:#A9BCC8; --c-drop:#7DBCE8;
+    --kid:#B9A6F5; --kid-soft:#262040; --on-kid:#1C1534; --run-soft:#16303F;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.45 var(--f-body)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* ----- Cielo ----- */
+.hero{
+  --g1:#1B6AA3; --g2:#3E8EC8; color:#fff;
+  background:radial-gradient(120% 90% at 88% -5%,rgba(255,255,255,.30),rgba(255,255,255,0) 55%),linear-gradient(165deg,var(--g1),var(--g2));
+  padding-top:max(16px,env(safe-area-inset-top,0px)); padding-bottom:58px; border-radius:0 0 30px 30px;
+}
+.hero[data-sky="cloud"]{--g1:#46596A;--g2:#6B8191}
+.hero[data-sky="rain"]{--g1:#2B3F55;--g2:#4C657B}
+.hero[data-sky="storm"]{--g1:#2A2D4A;--g2:#52567C}
+.hero[data-sky="night"]{--g1:#0F1D38;--g2:#2B4670}
+.hero-in{
+  max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.place{font:800 14px/1.2 var(--f-display);letter-spacing:.1em;text-transform:uppercase}
+.stamp{font-size:14px;opacity:.92;margin-top:2px;overflow-wrap:anywhere}
+.refresh{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.55);color:#fff;border-radius:10px;padding:8px 14px;min-height:40px;flex:none}
+.now{display:flex;align-items:center;gap:14px}
+.nowtemp{font:800 clamp(52px,16vw,72px)/1 var(--f-display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.nowtemp.sm{font-size:clamp(34px,10.5vw,46px);white-space:nowrap}
+.nowtxt{font-size:17px;font-weight:700}
+.nowsub{font-size:15px;opacity:.95}
+.meta{font-size:14px;opacity:.95;margin:0}
+h1{font:800 clamp(25px,7vw,34px)/1.12 var(--f-display);letter-spacing:-.01em;margin:4px 0 0;text-wrap:balance}
+
+/* ----- Iconos del tiempo ----- */
+.wi{flex:none}
+.wi .sun{stroke:var(--c-sun)} .wi .cl{stroke:var(--c-cloud)} .wi .dr{stroke:var(--c-drop)}
+.wi .dot{stroke-width:2.6}
+.hero .wi .sun{stroke:#FFD35C;fill:rgba(255,211,92,.22)}
+.hero .wi .cl{stroke:#fff;fill:rgba(255,255,255,.2)}
+.hero .wi .dr{stroke:#CDE7FF}
+.gi{flex:none;fill:var(--accent-soft);stroke:var(--ink)}
+.gi .nf{fill:none}
+
+/* ----- Estructura ----- */
+.wrap{
+  max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:22px;
+  padding-block:0 max(44px,env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.seg{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;margin-top:-30px;position:relative;z-index:1;
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 20px rgba(10,30,50,.14);
+}
+.seg button{border:0;background:transparent;border-radius:10px;padding:10px 4px;min-height:46px;font-weight:700}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+h2{font:700 19px/1.2 var(--f-display);margin:0 0 10px}
+section{min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:340px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;min-width:0}
+.card.past{opacity:.55}
+.when{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.range{font-size:13px;color:var(--muted)}
+.big{font:800 34px/1 var(--f-display);font-variant-numeric:tabular-nums;margin:10px 0 2px}
+.big.sm{font-size:28px;margin:0}
+.small{color:var(--muted);font-size:14px}
+.garment{font:700 19px/1.2 var(--f-display);margin:10px 0 8px}
+.kid-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:14px;line-height:1.25;padding:4px 10px;border-radius:999px;background:var(--accent-soft)}
+.chip.alert{background:var(--warn-soft);color:var(--warn);font-weight:700}
+.ui{flex:none}
+.note{margin:10px 0 0;padding:10px 12px;border-radius:12px;background:var(--accent-soft);font-size:15px}
+.pill{display:inline-block;font-weight:700;font-size:14px;padding:3px 10px;border-radius:999px}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.ok{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.msg{margin:0;padding:14px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+
+/* ----- Avance del finde (en Hoy y Mañana) ----- */
+.teaser{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;width:100%;text-align:left}
+.teaser .trow{display:flex;gap:16px;align-items:center}
+.ti{display:inline-flex;align-items:center;gap:5px;font-size:16px}
+.tverdict{font-weight:700;color:var(--accent)}
+.teaser .when{flex-basis:100%}
+
+/* ----- Correr ----- */
+.run-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.window{font:800 40px/1 var(--f-display);font-variant-numeric:tabular-nums;margin-top:8px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:8px;margin:14px 0}
+.stat{background:var(--bg);border-radius:10px;padding:8px 10px;min-width:0}
+.stat b{display:block;font-size:16px;line-height:1.2;white-space:nowrap}
+.stat span{font-size:12.5px;color:var(--muted)}
+.outfit{margin:0 0 14px;font-size:16px}
+.strip{display:grid;grid-template-columns:repeat(17,minmax(0,1fr));gap:3px;align-items:end;height:84px}
+.col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
+.col.past{opacity:.35}
+.bar{width:100%;border-radius:4px 4px 2px 2px}
+.bar.good{background:var(--good)} .bar.ok{background:var(--warn)} .bar.bad{background:var(--bad)}
+.col.dark .bar{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 3px,rgba(255,255,255,0) 3px 6px)}
+.col.best .bar{outline:2px solid var(--ink);outline-offset:1px}
+.col span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* ----- Finde ----- */
+.dh{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.dname{font:800 24px/1.1 var(--f-display);text-transform:capitalize}
+.dright{display:flex;align-items:center;gap:8px}
+.verdict{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:10px 0 12px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.slot{background:var(--bg);border-radius:12px;padding:10px 12px;min-width:0}
+.slotv{display:flex;align-items:center;gap:8px;margin:2px 0}
+.slotv b{font:800 22px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.lbl{margin:14px 0 6px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.rstrip{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:3px;align-items:end;height:66px}
+.rcol{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%}
+.rbar{width:100%;border-radius:3px 3px 1px 1px;background:var(--c-drop)}
+.rcol span{font-size:11px;color:var(--muted);height:13px;font-variant-numeric:tabular-nums}
+.kidline{display:flex;align-items:center;gap:10px;margin-top:14px}
+.kidline .chips{flex:1}
+.far{margin:10px 0 0}
+/* ----- Niños (violeta) y correr (azul): cada uno con su etiqueta, su cabecera y su fondo ----- */
+.tag{display:inline-block;text-align:center;font:800 12px/1 var(--f-display);letter-spacing:.09em;text-transform:uppercase;padding:6px 10px;border-radius:999px}
+.tag.kid{background:var(--kid);color:var(--on-kid)}
+.tag.run{background:var(--accent);color:var(--surface)}
+.brief{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.brow{display:grid;grid-template-columns:74px minmax(0,1fr);gap:10px;align-items:start}
+.brow .tag{margin-top:2px}
+.brow p{margin:0;font-size:19px;line-height:1.3;font-weight:700;text-wrap:balance}
+.hero .tag{background:#fff}
+.hero .tag.kid{color:#5B3DA8}
+.hero .tag.run{color:#1B5E94}
+.sec-head{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.sec-head h2{margin:0}
+.sec-head .small{display:block;line-height:1.25}
+.badge{flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center}
+.badge.kid{background:var(--kid);color:var(--on-kid)}
+.badge.run{background:var(--accent);color:var(--surface)}
+.badge .gi{fill:none;stroke:currentColor}
+.kidsec .card{background:var(--kid-soft);border-color:transparent}
+.kidsec .gi{fill:var(--surface)}
+.kidsec .chip{background:var(--surface)}
+.kidsec .note{background:var(--kid-soft)}
+.runsec .card{background:var(--run-soft);border-color:transparent}
+.runsec .stat{background:var(--surface)}
+.figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (max-width:340px){.figs{grid-template-columns:1fr}}
+.fig{background:var(--kid-soft);border-radius:16px;padding:10px 8px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;min-width:0}
+.fig.past{opacity:.55}
+.figt{display:flex;justify-content:space-between;align-items:flex-start;gap:4px;width:100%;text-align:left}
+.figt .when{font-size:12px;letter-spacing:.04em}
+.kidfig{width:100%;max-width:96px;height:auto;margin:4px 0 2px}
+.figbg{fill:var(--surface);opacity:.7}
+.figtemp{font:800 28px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.figword{font:700 16px/1.2 var(--f-display);margin-bottom:2px}
+.fl{font-size:13px;line-height:1.25;padding:3px 8px;border-radius:999px;background:var(--surface)}
+.fl.alert{background:var(--warn-soft);color:var(--warn);font-weight:700}
+.kidlbl{display:flex;align-items:center;gap:8px;margin:14px 0 8px}
+.day .kidline{margin-top:0;padding:10px;border-radius:12px;background:var(--kid-soft)}
+.day .kidline .gi{fill:var(--surface)}
+.day .kidline .chip{background:var(--surface)}
+.foot{color:var(--muted);font-size:13px;margin:0}
+</style>
+</head>
+<body>
+<header class="hero" id="hero" data-sky="clear">
+  <div class="hero-in">
+    <div class="hero-top">
+      <div>
+        <div class="place">Zaragoza</div>
+        <div class="stamp" id="stamp">Cargando el tiempo…</div>
+      </div>
+      <button class="refresh" id="refresh" type="button">Actualizar</button>
+    </div>
+    <div id="hero-body"><h1>Cargando el tiempo de Zaragoza…</h1></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="seg" role="group" aria-label="Qué día mirar">
+    <button type="button" id="b-today" aria-pressed="true">Hoy</button>
+    <button type="button" id="b-tomorrow" aria-pressed="false">Mañana</button>
+    <button type="button" id="b-weekend" aria-pressed="false">Finde</button>
+  </div>
+  <div id="view" style="display:flex;flex-direction:column;gap:22px"></div>
+  <p class="foot">Datos de Open-Meteo. La sensación térmica ya cuenta el viento y la humedad. Los horarios del cole y la ciudad se cambian al principio del script.</p>
+</main>
+
+<script>
+/* ---------- Ajustes que puedes cambiar ---------- */
+const PLACE  = { name: 'Zaragoza', lat: 41.6488, lon: -0.8891 };
+const TZ     = 'Europe/Madrid';
+const SCHOOL = { entrada: 9, recreo: 11, salida: 17 };   // horas del cole (en punto)
+
+/* ---------- Datos ---------- */
+const API = 'https://api.open-meteo.com/v1/forecast?latitude=' + PLACE.lat + '&longitude=' + PLACE.lon +
+  '&current=temperature_2m,apparent_temperature,weather_code,is_day' +
+  '&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m' +
+  '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_gusts_10m_max,sunrise,sunset' +
+  '&timezone=Europe%2FMadrid&forecast_days=8&wind_speed_unit=kmh';
+const CACHE_KEY = 'tiempo-zgz-v2';
+const HASHES = { hoy: 'today', manana: 'tomorrow', finde: 'weekend' };
+
+const $ = (id) => document.getElementById(id);
+let S = null;      // datos ya ordenados
+let NOW = null;    // fecha y hora actuales en Madrid
+let view = 'today';// 'today' | 'tomorrow' | 'weekend'
+
+function nowMadrid() {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+  const g = (t) => parts.find((x) => x.type === t).value;
+  return { date: g('year') + '-' + g('month') + '-' + g('day'), h: +g('hour'), m: +g('minute') };
+}
+function addDays(date, n) { const d = new Date(date + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function dow(date) { return new Date(date + 'T12:00:00Z').getUTCDay(); } // 0 = domingo
+function daysBetween(a, b) { return Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 864e5); }
+function dateLabel(date, opts) { return new Intl.DateTimeFormat('es-ES', Object.assign({ timeZone: 'UTC' }, opts)).format(new Date(date + 'T12:00:00Z')); }
+const fmt = (n) => Math.round(n);
+const deg = (n) => fmt(n) + ' °C';
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const isRainCode = (c) => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95;
+const clock = (s) => (s ? +s.slice(11, 13) + (+s.slice(14, 16)) / 60 : null);
+
+function parse(raw) {
+  const H = raw.hourly, D = raw.daily, hours = {}, days = {};
+  H.time.forEach((t, i) => {
+    const date = t.slice(0, 10), h = +t.slice(11, 13), code = H.weather_code[i];
+    const mm = H.precipitation[i] == null ? 0 : H.precipitation[i];
+    const p = H.precipitation_probability[i];
+    const temp = H.temperature_2m[i];
+    (hours[date] = hours[date] || [])[h] = {
+      h, temp, feel: H.apparent_temperature[i] == null ? temp : H.apparent_temperature[i],
+      pp: p == null ? (isRainCode(code) ? 65 : mm >= 0.2 ? 45 : 8) : p,   // si falta la probabilidad, se estima con el código del cielo
+      mm, code, wind: H.wind_speed_10m[i] || 0, gust: H.wind_gusts_10m[i] || 0, dir: H.wind_direction_10m[i] || 0
+    };
+  });
+  D.time.forEach((date, i) => {
+    const hs = (hours[date] || []).filter(Boolean);
+    days[date] = {
+      date, code: D.weather_code[i], tmax: D.temperature_2m_max[i], tmin: D.temperature_2m_min[i],
+      pp: D.precipitation_probability_max[i] == null ? Math.max.apply(null, hs.map((x) => x.pp).concat([0])) : D.precipitation_probability_max[i],
+      mm: D.precipitation_sum[i] == null ? hs.reduce((a, x) => a + x.mm, 0) : D.precipitation_sum[i],
+      gust: D.wind_gusts_10m_max[i] || 0,
+      rise: clock(D.sunrise && D.sunrise[i]), set: clock(D.sunset && D.sunset[i]),
+      riseTxt: D.sunrise && D.sunrise[i] ? D.sunrise[i].slice(11, 16) : '', setTxt: D.sunset && D.sunset[i] ? D.sunset[i].slice(11, 16) : ''
+    };
+  });
+  const c = raw.current;
+  return { hours, days, current: c ? { temp: c.temperature_2m, feel: c.apparent_temperature, code: c.weather_code, night: c.is_day === 0 } : null };
+}
+
+/* Resumen de un tramo de horas: sensación, lluvia, viento. */
+function agg(date, h0, h1) {
+  const hs = (S.hours[date] || []).filter((x) => x && x.h >= h0 && x.h <= h1);
+  if (!hs.length) return null;
+  const sum = (k) => hs.reduce((a, x) => a + x[k], 0);
+  const avg = (k) => sum(k) / hs.length;
+  const windy = hs.reduce((a, b) => (b.gust > a.gust ? b : a));
+  const wet = hs.reduce((a, b) => (b.pp > a.pp ? b : a));
+  const mid = hs[Math.floor(hs.length / 2)];
+  return {
+    h0, h1, feelAvg: avg('feel'), tempAvg: avg('temp'), pp: Math.max.apply(null, hs.map((x) => x.pp)),
+    mm: sum('mm'), gust: windy.gust, windAvg: avg('wind'), dir: windy.dir, code: wet.pp >= 40 ? wet.code : mid.code
+  };
+}
+
+/* ---------- Iconos y textos del cielo ---------- */
+function kind(code) {
+  if (code <= 1) return 'sun';
+  if (code === 2) return 'partly';
+  if (code === 3) return 'cloud';
+  if (code === 45 || code === 48) return 'fog';
+  if (code >= 51 && code <= 67) return 'rain';
+  if (code >= 71 && code <= 77) return 'snow';
+  if (code >= 80 && code <= 82) return 'rain';
+  if (code === 85 || code === 86) return 'snow';
+  if (code >= 95) return 'storm';
+  return 'cloud';
+}
+const TEXT = { sun: 'Despejado', partly: 'Nubes y claros', cloud: 'Nublado', fog: 'Niebla', rain: 'Lluvia', snow: 'Nieve', storm: 'Tormenta' };
+const CLOUD_LO = 'M7.5 18.5h9a4 4 0 0 0 .6-7.95 5.5 5.5 0 0 0-10.6 1.5A3.25 3.25 0 0 0 7.5 18.5z';
+const CLOUD_HI = 'M7.5 14.5h9a4 4 0 0 0 .6-7.95 5.5 5.5 0 0 0-10.6 1.5A3.25 3.25 0 0 0 7.5 14.5z';
+const CLOUD_SM = 'M9.5 20h8a3.5 3.5 0 0 0 .5-6.96 4.8 4.8 0 0 0-9.2 1.3A3 3 0 0 0 9.5 20z';
+const MOON = 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z';
+const ICONS = {
+  sun: '<g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></g>',
+  moon: '<path class="sun" d="' + MOON + '"/>',
+  partly: '<g class="sun"><circle cx="8" cy="8" r="2.8"/><path d="M8 2v1.4M2 8h1.4M3.8 3.8l1 1M12.2 3.8l-1 1"/></g><path class="cl" d="' + CLOUD_SM + '"/>',
+  partlyNight: '<path class="sun" d="M10.5 3a5 5 0 1 0 3 8.6A4.2 4.2 0 0 1 10.5 3z"/><path class="cl" d="' + CLOUD_SM + '"/>',
+  cloud: '<path class="cl" d="' + CLOUD_LO + '"/>',
+  fog: '<path class="cl" d="M4 8h16M3 12h18M5 16h14M8 20h8"/>',
+  rain: '<path class="cl" d="' + CLOUD_HI + '"/><path class="dr" d="M8 17.5l-1 3M12 17.5l-1 3M16 17.5l-1 3"/>',
+  snow: '<path class="cl" d="' + CLOUD_HI + '"/><path class="dr dot" d="M8 18v.01M12 20.5v.01M16 18v.01"/>',
+  storm: '<path class="cl" d="' + CLOUD_HI + '"/><path class="sun" d="M12.5 15.5l-2.5 3.5h3l-1.5 3"/>'
+};
+function icon(code, size, night) {
+  let k = kind(code);
+  if (night && k === 'sun') k = 'moon';
+  if (night && k === 'partly') k = 'partlyNight';
+  return '<svg class="wi" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[k] + '</svg>';
+}
+function skyOf(code, night) {
+  if (night) return 'night';
+  const k = kind(code);
+  return k === 'sun' || k === 'partly' ? 'clear' : k === 'rain' ? 'rain' : k === 'storm' ? 'storm' : 'cloud';
+}
+
+/* ---------- Prendas ---------- */
+const LONG = '<path d="M11 5L4 8 2 25l4 .8L8 14l2-1v14h12V13l2 1 2 11.8 4-.8L28 8l-7-3c-1 2.2-3 3-5 3s-4-.8-5-3z"/>';
+const GARMENTS = {
+  tee: '<path d="M11 5l-8 4 3 6 4-2v14h12V13l4 2 3-6-8-4c-1 2.2-3 3-5 3s-4-.8-5-3z"/>',
+  long: LONG,
+  hood: LONG + '<path class="nf" d="M12 20h8l1.2 4.5h-10.4zM14.5 9.5v4M17.5 9.5v4"/>',
+  jacket: LONG + '<path class="nf" d="M16 8v19M12 21v3M20 21v3"/>',
+  coat: LONG + '<path class="nf" d="M11 5l5 6 5-6M16 11v16"/><path class="nf" d="M19.5 15v.01M19.5 19v.01M19.5 23v.01" stroke-width="2.4"/>'
+};
+const GMAP = { 'abrigo grueso': 'coat', 'abrigo': 'coat', 'chaqueta gruesa': 'jacket', 'sudadera': 'hood', 'manga larga': 'long', 'manga corta': 'tee' };
+function gicon(main, size) {
+  return '<svg class="gi" width="' + size + '" height="' + size + '" viewBox="0 0 32 32" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">' + GARMENTS[GMAP[main]] + '</svg>';
+}
+const UMB = '<svg class="ui" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13a9 9 0 0 1 18 0z"/><path d="M12 13v6a2 2 0 0 0 4 0"/></svg>';
+
+/* ---------- Viento: en Zaragoza manda el cierzo (noroeste) ---------- */
+const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+const compass = (d) => DIRS[Math.round(d / 45) % 8];
+const isCierzo = (d) => d >= 265 && d <= 355;
+function windLabel(dir, speed) { return (isCierzo(dir) && speed >= 20 ? 'Cierzo' : compass(dir)) + ' ' + fmt(speed) + ' km/h'; }
+
+function garment(f) {
+  if (f < 2)  return { main: 'abrigo grueso', extra: ['Gorro y guantes'] };
+  if (f < 7)  return { main: 'abrigo', extra: ['Bufanda y gorro'] };
+  if (f < 12) return { main: 'chaqueta gruesa', extra: [] };
+  if (f < 17) return { main: 'sudadera', extra: ['Vale también chaqueta fina'] };
+  if (f < 22) return { main: 'manga larga', extra: [] };
+  if (f < 27) return { main: 'manga corta', extra: [] };
+  return { main: 'manga corta', extra: ['Gorra y agua'] };
+}
+function rainNote(s) {
+  if (s.pp >= 50 || s.mm >= 1) return { alert: true, text: 'Paraguas o chubasquero' };
+  if (s.pp >= 30) return { alert: false, text: 'Chubasquero en la mochila' };
+  return null;
+}
+function windNote(s) {
+  if (s.gust >= 50) return { alert: true, text: (isCierzo(s.dir) ? 'Cierzo fuerte' : 'Viento fuerte') + ': cortavientos con capucha' };
+  if (s.gust >= 35) return { alert: false, text: 'Algo de aire: mejor cortavientos' };
+  return null;
+}
+function slotChips(a) {
+  const out = garment(a.feelAvg).extra.map((t) => ({ t, alert: false }));
+  const r = rainNote(a); if (r) out.push({ t: r.text, alert: r.alert, umb: true });
+  const w = windNote(a); if (w) out.push({ t: w.text, alert: w.alert });
+  return out.map((c) => '<span class="chip' + (c.alert ? ' alert' : '') + '">' + (c.umb ? UMB : '') + c.t + '</span>').join('');
+}
+
+/* ---------- Ropa de los niños ---------- */
+const SLOTS = [
+  { key: 'entrada', name: 'Entrada', h: SCHOOL.entrada },
+  { key: 'recreo', name: 'Recreo', h: SCHOOL.recreo },
+  { key: 'salida', name: 'Salida', h: SCHOOL.salida }
+];
+const SKIN = '#F2C9A5', HAIR = '#4B3626', PANTS = '#3A4A63', SHOE = '#26303B', WOOL = '#F4D35E', WOOL_D = '#E0B93A', INK = '#26303B';
+const GCOL = { 'abrigo grueso': '#D9542B', 'abrigo': '#D9542B', 'chaqueta gruesa': '#2A7DA6', 'sudadera': '#7A58B5', 'manga larga': '#2F9C8A', 'manga corta': '#F0AE2D' };
+
+/* Un niño dibujado que se viste según la sensación térmica: abrigo, bufanda, gorro, paraguas, pantalón corto... */
+function figure(a) {
+  const f = a.feelAvg, g = garment(f).main, col = GCOL[g];
+  const long = g !== 'manga corta', coat = g === 'abrigo' || g === 'abrigo grueso';
+  const rain = rainNote(a) && rainNote(a).alert, windy = a.gust >= 50;
+  const shorts = f >= 22, beanie = f < 7, scarf = f < 7, gloves = f < 2, cap = f >= 27;
+  let s = '<circle class="figbg" cx="50" cy="94" r="46"/>';
+  // piernas y zapatos
+  if (shorts) s += '<rect x="37" y="120" width="9" height="22" rx="3" fill="' + SKIN + '"/><rect x="54" y="120" width="9" height="22" rx="3" fill="' + SKIN + '"/><rect x="35" y="106" width="13" height="16" rx="3" fill="' + PANTS + '"/><rect x="52" y="106" width="13" height="16" rx="3" fill="' + PANTS + '"/>';
+  else s += '<rect x="35" y="106" width="13" height="38" rx="4" fill="' + PANTS + '"/><rect x="52" y="106" width="13" height="38" rx="4" fill="' + PANTS + '"/>';
+  s += '<ellipse cx="41" cy="146" rx="10" ry="5" fill="' + SHOE + '"/><ellipse cx="59" cy="146" rx="10" ry="5" fill="' + SHOE + '"/>';
+  // brazos y manos
+  if (long) s += '<rect x="20" y="64" width="13" height="38" rx="6.5" fill="' + col + '"/><rect x="67" y="64" width="13" height="38" rx="6.5" fill="' + col + '"/>';
+  else s += '<rect x="22" y="68" width="10" height="30" rx="5" fill="' + SKIN + '"/><rect x="68" y="68" width="10" height="30" rx="5" fill="' + SKIN + '"/><rect x="19" y="63" width="15" height="14" rx="5" fill="' + col + '"/><rect x="66" y="63" width="15" height="14" rx="5" fill="' + col + '"/>';
+  const hand = gloves ? WOOL : SKIN;
+  s += '<circle cx="26.5" cy="102" r="5.5" fill="' + hand + '"/><circle cx="73.5" cy="102" r="5.5" fill="' + hand + '"/>';
+  // cuerpo y detalles de la prenda
+  const th = coat ? 58 : 46;
+  s += '<rect x="31" y="62" width="38" height="' + th + '" rx="9" fill="' + col + '"/>';
+  if (coat) s += '<path d="M50 70v' + (th - 12) + '" stroke="rgba(0,0,0,.25)" stroke-width="1.6"/><circle cx="56" cy="78" r="2" fill="#fff"/><circle cx="56" cy="90" r="2" fill="#fff"/><circle cx="56" cy="102" r="2" fill="#fff"/>';
+  else if (g === 'chaqueta gruesa') s += '<path d="M50 66v40" stroke="rgba(0,0,0,.3)" stroke-width="1.8"/><path d="M37 94v8M63 94v8" stroke="rgba(0,0,0,.25)" stroke-width="1.6" stroke-linecap="round"/>';
+  else if (g === 'sudadera') s += '<ellipse cx="50" cy="60" rx="21" ry="10" fill="' + col + '" stroke="rgba(0,0,0,.22)" stroke-width="1.5"/><rect x="39" y="90" width="22" height="13" rx="4" fill="rgba(0,0,0,.14)"/><path d="M46 70v9M54 70v9" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>';
+  else if (g === 'manga larga') s += '<path d="M31 84h38M31 93h38" stroke="rgba(255,255,255,.55)" stroke-width="3"/>';
+  else s += '<circle cx="50" cy="82" r="6" fill="rgba(255,255,255,.6)"/>';
+  // cabeza
+  s += '<circle cx="50" cy="44" r="15" fill="' + SKIN + '"/>';
+  if (!beanie && !cap) s += '<path d="M35.5 43c0-9 6.5-15 14.5-15s14.5 6 14.5 15c-4-5-9-7-14.5-7s-10.5 2-14.5 7z" fill="' + HAIR + '"/>';
+  s += '<circle cx="44.5" cy="49" r="1.7" fill="' + INK + '"/><circle cx="55.5" cy="49" r="1.7" fill="' + INK + '"/><path d="M45 54q5 4.5 10 0" stroke="' + INK + '" stroke-width="1.6" fill="none" stroke-linecap="round"/>';
+  if (beanie) s += '<path d="M34.5 42c0-10 7-17 15.5-17s15.5 7 15.5 17z" fill="' + WOOL + '"/><rect x="33" y="39" width="34" height="7" rx="3.5" fill="' + WOOL_D + '"/><circle cx="50" cy="24" r="4.5" fill="#fff"/>';
+  if (cap) s += '<path d="M35 41c0-9 6.5-14 15-14s15 5 15 14z" fill="#2A7DA6"/><path d="M52 40h21c0 4-5 6-10 6h-11z" fill="#1F5F80"/>';
+  if (scarf) s += '<rect x="35" y="58" width="30" height="9" rx="4.5" fill="' + WOOL + '"/><rect x="54" y="62" width="9" height="22" rx="4" fill="' + WOOL_D + '"/>';
+  // paraguas y viento
+  if (rain) s += '<path d="M10 28a40 22 0 0 1 80 0z" fill="#3B82C4"/><path d="M36 28c1-10 5-18 14-21M64 28c-1-10-5-18-14-21" stroke="rgba(255,255,255,.55)" stroke-width="1.5" fill="none"/><path d="M50 28v8" stroke="' + INK + '" stroke-width="2.4" stroke-linecap="round"/><path d="M8 44l-2 7M92 40l-2 7M14 62l-2 7M88 60l-2 7" stroke="#5AA9E6" stroke-width="2" stroke-linecap="round"/>';
+  if (windy) s += '<path d="M3 74q8-4 14 0M2 86q10-5 18 0" stroke="#7F95A6" stroke-width="2" fill="none" stroke-linecap="round"/>';
+  return '<svg class="kidfig" viewBox="0 0 100 156" role="img" aria-label="Niño vestido con ' + g + '">' + s + '</svg>';
+}
+function figLines(a, isLast, day) {
+  const out = garment(a.feelAvg).extra.map((t) => ({ t: t.replace('Vale también chaqueta fina', 'O chaqueta fina'), alert: false }));
+  const r = rainNote(a); if (r) out.push({ t: r.alert ? 'Paraguas' : 'Chubasquero en la mochila', alert: r.alert });
+  const w = windNote(a); if (w) out.push({ t: w.alert ? 'Cortavientos con capucha' : 'Cortavientos', alert: w.alert });
+  if (isLast && day && day.set != null && day.set - a.h0 <= 1.1) out.push({ t: 'Anochece a las ' + day.setTxt, alert: false });
+  return out;
+}
+function figCard(slot, a, past, day) {
+  const lines = figLines(a, slot.key === 'salida', day);
+  return '<article class="fig' + (past ? ' past' : '') + '">' +
+    '<div class="figt"><div><div class="when">' + slot.name + '</div><div class="range">' + slot.h + ' h' + (past ? ' · ya pasó' : '') + '</div></div>' + icon(a.code, 26, false) + '</div>' +
+    figure(a) +
+    '<div class="figtemp">' + fmt(a.feelAvg) + '°</div>' +
+    '<div class="figword">' + cap(garment(a.feelAvg).main) + '</div>' +
+    lines.map((l) => '<div class="fl' + (l.alert ? ' alert' : '') + '">' + l.t + '</div>').join('') + '</article>';
+}
+function kidsSummary(ks) {
+  const live = ks.filter((k) => !k.past);
+  if (!live.length) return 'El cole ya ha pasado. Mira mañana.';
+  const when = ['a la entrada', 'en el recreo', 'a la salida'];
+  const groups = [];
+  live.forEach((k) => {
+    const g = garment(k.a.feelAvg).main, last = groups[groups.length - 1];
+    if (last && last.g === g) last.idx.push(k.i); else groups.push({ g, idx: [k.i] });
+  });
+  const phrase = (idx) => (idx.length === 3 ? 'todo el día' : idx.length === 2 ? (idx[0] === 0 ? 'por la mañana' : 'desde el recreo') : when[idx[0]]);
+  const parts = groups.map((x) => x.g + ' ' + phrase(x.idx));
+  let s = cap(parts.length > 1 ? parts.slice(0, -1).join(', ') + ' y ' + parts[parts.length - 1] : parts[0]);
+  if (live.some((k) => rainNote(k.a) && rainNote(k.a).alert)) s += '. Lleva paraguas.';
+  else if (live.some((k) => rainNote(k.a))) s += '. Puede chispear.';
+  else s += '.';
+  return s;
+}
+function runSummary(date, isToday) {
+  const r = bestRun(date, isToday);
+  if (!r) return 'Por hoy ya no quedan horas. Mira mañana.';
+  const a = r.best.a, b = r.best.b;
+  const bd = band(r.best.sc), tramo = a.h + ' a ' + (b.h + 1) + ' h';
+  const night = a.dark || b.dark ? ' Aún es de noche.' : '';
+  if (bd === 'bad') return 'Mejor evitar. Lo menos malo: de ' + tramo + '.' + night;
+  return 'Mejor de ' + tramo + '. ' + RUN_VERDICT[bd] + '.' + night;
+}
+
+/* ---------- Salir a correr ---------- */
+const isDark = (day, h) => day && day.rise != null && (h + 1 <= day.rise || h >= day.set);
+function runScore(x, dark) {
+  let p = dark ? 10 : 0;
+  if (x.feel < 6) p += (6 - x.feel) * 5; else if (x.feel > 13) p += (x.feel - 13) * 6;
+  p += x.pp * 0.5 + x.mm * 15;
+  if (x.gust > 25) p += (x.gust - 25) * 0.8;
+  return Math.max(0, Math.min(100, Math.round(100 - p)));
+}
+const band = (s) => (s >= 70 ? 'good' : s >= 45 ? 'ok' : 'bad');
+const RUN_VERDICT = { good: 'Buen momento', ok: 'Regular', bad: 'Mejor evitar' };
+function outfit(f) {
+  if (f < 3)  return 'Mallas largas, térmica de manga larga, guantes y buff.';
+  if (f < 9)  return 'Mallas largas y camiseta de manga larga.';
+  if (f < 15) return 'Camiseta de manga larga fina y pantalón corto.';
+  if (f < 21) return 'Camiseta de manga corta y pantalón corto.';
+  return 'Tirantes y pantalón corto. Lleva agua y gorra, y evita las horas centrales.';
+}
+function bestRun(date, isToday) {
+  const dayInfo = S.days[date];
+  const hrs = (S.hours[date] || []).filter((x) => x && x.h >= 6 && x.h <= 22).map((x) => {
+    const dark = isDark(dayInfo, x.h);
+    return Object.assign({ dark, score: runScore(x, dark) }, x);
+  });
+  const first = isToday ? NOW.h + (NOW.m >= 30 ? 1 : 0) : 6;
+  let best = null;
+  for (let i = 0; i < hrs.length - 1; i++) {
+    if (hrs[i].h < first) continue;
+    const sc = (hrs[i].score + hrs[i + 1].score) / 2;
+    if (!best || sc > best.sc + 0.01) best = { sc, a: hrs[i], b: hrs[i + 1] };
+  }
+  return best ? { hrs, first, best } : null;
+}
+function renderRun(date, isToday) {
+  const r = bestRun(date, isToday);
+  if (!r) return '<p class="msg">Por hoy ya no quedan horas para salir. Mira mañana.</p>';
+  const { hrs, first, best } = r;
+
+  const pair = [best.a, best.b];
+  const feel = (best.a.feel + best.b.feel) / 2;
+  const pp = Math.max(best.a.pp, best.b.pp);
+  const gust = Math.max(best.a.gust, best.b.gust);
+  const wind = (best.a.wind + best.b.wind) / 2;
+  const dir = best.a.gust >= best.b.gust ? best.a.dir : best.b.dir;
+  const bd = band(best.sc);
+  let tips = outfit(feel);
+  if (pp >= 50) tips += ' Cortavientos impermeable.';
+  if (gust >= 45 && isCierzo(dir)) tips += ' Con cierzo fuerte, sal contra el viento para volver con él a favor.';
+  if (best.a.dark || best.b.dark) tips += ' Aún es de noche: lleva frontal o algo reflectante.';
+
+  const bars = hrs.map((x) => {
+    const inBest = pair.indexOf(x) !== -1;
+    return '<div class="col' + (x.h < first ? ' past' : '') + (x.dark ? ' dark' : '') + (inBest ? ' best' : '') + '" title="' + x.h + ':00 · ' + fmt(x.feel) + ' °C · lluvia ' + x.pp + ' %">' +
+      '<div class="bar ' + band(x.score) + '" style="height:' + (10 + Math.round(x.score * 0.5)) + 'px"></div><span>' + x.h + '</span></div>';
+  }).join('');
+  const hasDark = hrs.some((x) => x.dark);
+
+  return '<article class="card">' +
+    '<div class="run-top"><div><div class="when">Mejor momento</div><div class="window">' + best.a.h + '–' + (best.b.h + 1) + ' h</div></div>' +
+    '<span class="pill ' + bd + '">' + RUN_VERDICT[bd] + '</span></div>' +
+    '<div class="stats">' +
+      '<div class="stat"><b>' + deg(feel) + '</b><span>Sensación</span></div>' +
+      '<div class="stat"><b>' + pp + ' %</b><span>Lluvia</span></div>' +
+      '<div class="stat"><b>' + windLabel(dir, wind) + '</b><span>Viento</span></div>' +
+    '</div>' +
+    '<p class="outfit"><b>Ponte:</b> ' + tips + '</p>' +
+    '<div class="strip" role="img" aria-label="Calidad de cada hora para correr, de 6 a 22 horas. Barra alta, mejor hora.">' + bars + '</div>' +
+    '<div class="legend"><span><i style="background:var(--good)"></i>Bien</span><span><i style="background:var(--warn)"></i>Regular</span><span><i style="background:var(--bad)"></i>Mejor evitar</span>' +
+    (hasDark ? '<span>Rayadas: de noche</span>' : '') + '<span>Con borde: tu tramo</span></div>' +
+    '</article>';
+}
+
+/* ---------- Fin de semana ---------- */
+function weekendDates() {
+  const d = dow(NOW.date);
+  const sat = d === 6 ? NOW.date : d === 0 ? addDays(NOW.date, 6) : addDays(NOW.date, 6 - d);
+  return { sat, sun: addDays(sat, 1), next: d === 0 };
+}
+function outing(a) {
+  let p = a.pp * 0.6 + a.mm * 8;
+  if (a.feelAvg < 6) p += (6 - a.feelAvg) * 4;
+  if (a.feelAvg > 28) p += (a.feelAvg - 28) * 6;
+  if (a.gust > 30) p += (a.gust - 30) * 1.2;
+  return Math.max(0, Math.round(100 - p));
+}
+const OUT_VERDICT = { good: 'Bueno para salir', ok: 'Aceptable', bad: 'Mejor plan de interior' };
+function outingReason(a, m, t) {
+  if (m.pp < 30 && t.pp >= 50) return 'Seco por la mañana, lluvia por la tarde';
+  if (m.pp >= 50 && t.pp < 30) return 'Lluvia por la mañana, seco por la tarde';
+  const r = [];
+  if (a.pp >= 50) r.push('lluvia probable'); else if (a.pp >= 30) r.push('puede llover');
+  if (a.feelAvg < 6) r.push('frío'); else if (a.feelAvg > 28) r.push('calor');
+  if (a.gust >= 45) r.push(isCierzo(a.dir) ? 'cierzo fuerte' : 'viento fuerte');
+  return r.length ? cap(r.join(', ')) : 'Seco y sin viento fuerte';
+}
+function dayInfo(date) {
+  const d = S.days[date], m = agg(date, 10, 14), t = agg(date, 15, 19), o = agg(date, 10, 19);
+  if (!d || !m || !t || !o) return null;
+  const sm = outing(m), st = outing(t);
+  const sc = Math.round(0.65 * Math.max(sm, st) + 0.35 * Math.min(sm, st));   // un buen tramo del día cuenta más que uno malo
+  return { date, d, m, t, o, sc, bd: band(sc), reason: outingReason(o, m, t), ahead: daysBetween(NOW.date, date) };
+}
+function weekendInfo() {
+  const w = weekendDates(), a = dayInfo(w.sat), b = dayInfo(w.sun);
+  if (!a || !b) return null;
+  let hl, short;
+  if (Math.max(a.sc, b.sc) < 45) { hl = 'Los dos días vienen mal para salir.'; short = 'Mal tiempo los dos días'; }
+  else if (Math.abs(a.sc - b.sc) < 10) {
+    if (Math.min(a.sc, b.sc) >= 70) { hl = 'Los dos días valen para salir.'; short = 'Valen los dos días'; }
+    else { hl = 'Los dos días son parecidos.'; short = 'Días parecidos'; }
+  } else { const best = a.sc > b.sc ? 'sábado' : 'domingo'; hl = 'Mejor día para salir: ' + best + '.'; short = 'Mejor: ' + best; }
+  return { w, a, b, hl, short, title: w.next ? 'Próximo fin de semana' : 'Este fin de semana', better: a.sc >= b.sc ? a : b };
+}
+function weekendCard(di) {
+  const { date, d, m, t, o } = di;
+  const g = garment(o.feelAvg);
+  const hrs = (S.hours[date] || []).filter((x) => x && x.h >= 8 && x.h <= 20);
+  const bars = hrs.map((x) => '<div class="rcol" title="' + x.h + ':00 · lluvia ' + x.pp + ' %"><div class="rbar" style="height:' + (4 + Math.round(x.pp * 0.42)) + 'px;opacity:' + (0.35 + x.pp / 160).toFixed(2) + '"></div><span>' + (x.h % 2 === 0 ? x.h : '') + '</span></div>').join('');
+  const slot = (name, a) => '<div class="slot"><div class="small">' + name + '</div><div class="slotv">' + icon(a.code, 26) + '<b>' + deg(a.tempAvg) + '</b></div><div class="small">lluvia ' + a.pp + ' %</div></div>';
+  return '<article class="card day">' +
+    '<div class="dh"><div><div class="dname">' + dateLabel(date, { weekday: 'long' }) + '</div><div class="range">' + dateLabel(date, { day: 'numeric', month: 'long' }) + '</div></div>' +
+    '<div class="dright">' + icon(d.code, 40) + '<div><div class="big sm">' + fmt(d.tmin) + '–' + deg(d.tmax) + '</div><div class="small">' + TEXT[kind(d.code)] + '</div></div></div></div>' +
+    '<div class="verdict"><span class="pill ' + di.bd + '">' + OUT_VERDICT[di.bd] + '</span><span class="small">' + di.reason + '</span></div>' +
+    '<div class="two">' + slot('Mañana · 10–14 h', m) + slot('Tarde · 15–19 h', t) + '</div>' +
+    '<div class="lbl">Lluvia por horas</div><div class="rstrip" role="img" aria-label="Probabilidad de lluvia de 8 a 20 horas">' + bars + '</div>' +
+    '<div class="kidlbl"><span class="tag kid">Niños</span><span class="small">Qué ponerles ese día</span></div>' +
+    '<div class="kidline">' + gicon(g.main, 40) + '<div class="chips"><span class="chip"><b>' + cap(g.main) + '</b></span>' + slotChips(o) + '</div></div>' +
+    (di.ahead >= 5 ? '<p class="small far">Previsión a ' + di.ahead + ' días: puede cambiar.</p>' : '') +
+    '</article>';
+}
+function teaser(wk) {
+  const item = (lab, di) => '<span class="ti">' + lab + icon(di.d.code, 24) + '<b>' + fmt(di.d.tmax) + '°</b></span>';
+  return '<button type="button" class="card teaser" id="to-weekend"><div class="when">' + wk.title + '</div>' +
+    '<div class="trow">' + item('Sáb ', wk.a) + item('Dom ', wk.b) + '</div><div class="tverdict">' + wk.short + ' ›</div></button>';
+}
+
+/* ---------- Pintar la página ---------- */
+function safe(fn, what) {
+  try { return fn(); } catch (e) { return '<p class="msg">No he podido mostrar ' + what + ': ' + e.message + '</p>'; }
+}
+function heroHtml(o) {
+  return '<div class="now">' + o.icon + '<div><div class="nowtemp' + (o.bigSm ? ' sm' : '') + '">' + o.big + '</div><div class="nowtxt">' + o.txt + '</div>' +
+    (o.sub ? '<div class="nowsub">' + o.sub + '</div>' : '') + '</div></div>' +
+    (o.meta ? '<p class="meta">' + o.meta + '</p>' : '') + '<h1>' + o.headline + '</h1>' + (o.brief || '');
+}
+const RUNNER = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="15.5" cy="4.5" r="1.9"/><path d="M12.5 8.5l-2.8 3 3 2.4-1.4 5.6M12.5 8.5l3.6 2.2 2.4-1.2M9.7 11.5L6 12.6M13.1 14.1l3.6 1.9-.6 4.2"/></svg>';
+function sectionHead(kindName, title, sub) {
+  const ico = kindName === 'kid' ? '<svg class="gi" width="30" height="30" viewBox="0 0 32 32" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">' + GARMENTS.tee + '</svg>' : RUNNER;
+  return '<div class="sec-head"><span class="badge ' + kindName + '">' + ico + '</span><div><h2 id="h-' + kindName + '">' + title + '</h2><span class="small">' + sub + '</span></div></div>';
+}
+function briefRows(kidsTxt, runTxt) {
+  return '<div class="brief"><div class="brow"><span class="tag kid">Niños</span><p>' + kidsTxt + '</p></div>' +
+    '<div class="brow"><span class="tag run">Correr</span><p>' + runTxt + '</p></div></div>';
+}
+function setHero(skyName, html) { $('hero').setAttribute('data-sky', skyName); $('hero-body').innerHTML = html; }
+
+function renderDayView() {
+  const isToday = view === 'today';
+  const date = isToday ? NOW.date : addDays(NOW.date, 1);
+  const day = S.days[date];
+  const ks = SLOTS.map((s, i) => ({ s, i, a: agg(date, s.h, s.h), past: isToday && s.h < NOW.h }));
+  if (!day || ks.some((k) => !k.a)) {
+    setHero('cloud', '<h1>Estos datos han caducado. Pulsa Actualizar con conexión.</h1>');
+    $('view').innerHTML = '';
+    return;
+  }
+  const label = (isToday ? 'Hoy ' : 'Mañana ') + dateLabel(date, { weekday: 'long' });
+  const sunTxt = day.riseTxt ? 'Amanece ' + day.riseTxt + ' · Anochece ' + day.setTxt : '';
+
+  let o;
+  if (isToday) {
+    const hr = (S.hours[date] || [])[NOW.h];
+    const c = S.current || (hr ? { temp: hr.temp, feel: hr.feel, code: hr.code, night: isDark(day, NOW.h) } : { temp: day.tmax, feel: day.tmax, code: day.code, night: false });
+    o = { icon: icon(c.code, 92, c.night), big: fmt(c.temp) + '°', txt: TEXT[kind(c.code)], sub: 'Hoy ' + fmt(day.tmin) + '–' + deg(day.tmax),
+      meta: 'Sensación ' + deg(c.feel) + (sunTxt ? ' · ' + sunTxt : ''), sky: skyOf(c.code, c.night) };
+  } else {
+    o = { icon: icon(day.code, 92, false), big: fmt(day.tmin) + '–' + fmt(day.tmax) + '°', txt: TEXT[kind(day.code)], sub: '', meta: sunTxt, sky: skyOf(day.code, false) };
+  }
+  o.headline = label;
+  o.brief = briefRows(kidsSummary(ks), runSummary(date, isToday));
+  setHero(o.sky, heroHtml(o));
+
+  const kids = safe(() => {
+    let h = '<div class="figs">' + ks.map((k) => figCard(k.s, k.a, k.past, day)).join('') + '</div>';
+    const fs = ks.filter((k) => !k.past).map((k) => k.a.feelAvg);
+    const swing = fs.length > 1 ? Math.max.apply(null, fs) - Math.min.apply(null, fs) : 0;
+    if (swing >= 7) h += '<p class="note">Por capas: entre la hora más fresca y la más templada hay ' + fmt(swing) + ' grados. Que puedan quitarse la prenda de arriba.</p>';
+    return h;
+  }, 'la ropa de los niños');
+  const run = safe(() => renderRun(date, isToday), 'el mejor momento para correr');
+  const tz = safe(() => { const wk = weekendInfo(); return wk ? teaser(wk) : ''; }, 'el avance del fin de semana');
+
+  $('view').innerHTML = tz +
+    '<section class="kidsec" aria-labelledby="h-kid">' + sectionHead('kid', 'Ropa de los niños', 'Entrada, recreo y salida del cole') + kids + '</section>' +
+    '<section class="runsec" aria-labelledby="h-run">' + sectionHead('run', 'Salir a correr', 'Para ti: mejor hora y qué ponerte') + run + '</section>';
+}
+
+function renderWeekendView() {
+  const wk = weekendInfo();
+  if (!wk) {
+    setHero('cloud', '<h1>Aún no hay previsión para el fin de semana.</h1>');
+    $('view').innerHTML = '';
+    return;
+  }
+  const bt = wk.better.d;
+  setHero(skyOf(bt.code, false), heroHtml({
+    icon: icon(bt.code, 92, false), big: fmt(wk.a.d.tmax) + '° · ' + fmt(wk.b.d.tmax) + '°', bigSm: true, txt: 'Máximas de sábado y domingo', sub: '',
+    meta: wk.title + ': ' + dateLabel(wk.w.sat, { day: 'numeric' }) + ' y ' + dateLabel(wk.w.sun, { day: 'numeric', month: 'long' }),
+    headline: wk.hl
+  }));
+  $('view').innerHTML = safe(() => weekendCard(wk.a) + weekendCard(wk.b), 'el fin de semana');
+}
+
+function render() {
+  NOW = nowMadrid();
+  ['today', 'tomorrow', 'weekend'].forEach((v) => $('b-' + v).setAttribute('aria-pressed', String(view === v)));
+  if (view === 'weekend') renderWeekendView(); else renderDayView();
+}
+function setView(v) {
+  view = v;
+  try { history.replaceState(null, '', '#' + Object.keys(HASHES).find((k) => HASHES[k] === v)); } catch (e) {}
+  if (S) render();
+}
+
+/* ---------- Carga, caché y errores ---------- */
+const timeOf = (ms) => new Intl.DateTimeFormat('es-ES', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+const dayOf = (ms) => new Intl.DateTimeFormat('es-ES', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'short' }).format(new Date(ms));
+
+async function load() {
+  $('stamp').textContent = 'Actualizando…';
+  try {
+    const r = await fetch(API, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const raw = await r.json();
+    S = parse(raw); S.at = Date.now();
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: S.at, raw })); } catch (e) {}
+    $('stamp').textContent = 'Actualizado a las ' + timeOf(S.at);
+    render();
+  } catch (err) {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch (e) {}
+    if (cached && cached.raw) {
+      S = parse(cached.raw); S.at = cached.at;
+      $('stamp').textContent = 'Sin conexión. Datos de las ' + timeOf(S.at) + ' del ' + dayOf(S.at);
+      render();
+    } else {
+      setHero('cloud', '<h1>No he podido cargar el tiempo.</h1>');
+      $('stamp').textContent = 'Ábrela en el navegador y con conexión. Desde una vista previa no puede pedir datos.';
+    }
+  }
+}
+
+$('refresh').addEventListener('click', load);
+$('b-today').addEventListener('click', () => setView('today'));
+$('b-tomorrow').addEventListener('click', () => setView('tomorrow'));
+$('b-weekend').addEventListener('click', () => setView('weekend'));
+$('view').addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#to-weekend')) setView('weekend'); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S && Date.now() - S.at > 30 * 60 * 1000) load(); });
+
+const fromHash = HASHES[(location.hash || '').replace('#', '')];
+view = fromHash || (nowMadrid().h >= 15 ? 'tomorrow' : 'today');  // por la tarde interesa más mañana
+load();
+</script>
+</body>
+</html>
