@@ -1,0 +1,1147 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tiempo Zaragoza</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+/* Una columna para el móvil. Arriba, un cielo que cambia con el tiempo y la frase del día.
+   Debajo, tres pestañas: Hoy, Mañana y Finde. */
+:root{
+  --bg:#ECF1F4; --surface:#FFFFFF; --ink:#12212B; --muted:#51636F; --line:#D3DDE3;
+  --accent:#1C5D8A; --accent-soft:#DCEAF3;
+  --good:#176B3E; --good-soft:#DDF0E5; --warn:#865400; --warn-soft:#F7EACB; --bad:#B03333; --bad-soft:#F8DEDE;
+  --c-sun:#D98E04; --c-cloud:#5C7384; --c-drop:#2B7BB9;
+  --kid:#6A4BB8; --kid-soft:#EEE9FA; --on-kid:#FFFFFF; --run-soft:#E3EEF6;
+  --trip:#0F7B6C; --trip-soft:#DDF1EC; --on-trip:#FFFFFF;
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0E1920; --surface:#16262F; --ink:#E7EFF4; --muted:#9FB3BF; --line:#2A3D49;
+    --accent:#7DBCE8; --accent-soft:#1C3646;
+    --good:#5CCB8D; --good-soft:#173A29; --warn:#E6B14F; --warn-soft:#3F3216; --bad:#F08A8A; --bad-soft:#442022;
+    --c-sun:#FFC247; --c-cloud:#A9BCC8; --c-drop:#7DBCE8;
+    --kid:#B9A6F5; --kid-soft:#262040; --on-kid:#1C1534; --run-soft:#16303F;
+    --trip:#6FD3C0; --trip-soft:#15352F; --on-trip:#06231E;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.45 var(--f-body)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* ----- Cielo ----- */
+.hero{
+  --g1:#1B6AA3; --g2:#3E8EC8; color:#fff;
+  background:radial-gradient(120% 90% at 88% -5%,rgba(255,255,255,.30),rgba(255,255,255,0) 55%),linear-gradient(165deg,var(--g1),var(--g2));
+  padding-top:max(16px,env(safe-area-inset-top,0px)); padding-bottom:58px; border-radius:0 0 30px 30px;
+}
+.hero[data-sky="cloud"]{--g1:#46596A;--g2:#6B8191}
+.hero[data-sky="rain"]{--g1:#2B3F55;--g2:#4C657B}
+.hero[data-sky="storm"]{--g1:#2A2D4A;--g2:#52567C}
+.hero[data-sky="night"]{--g1:#0F1D38;--g2:#2B4670}
+.hero-in{
+  max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.place{font:800 14px/1.2 var(--f-display);letter-spacing:.1em;text-transform:uppercase}
+.stamp{font-size:14px;opacity:.92;margin-top:2px;overflow-wrap:anywhere}
+.refresh{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.55);color:#fff;border-radius:10px;padding:8px 14px;min-height:40px;flex:none}
+.now{display:flex;align-items:center;gap:14px}
+.nowtemp{font:800 clamp(52px,16vw,72px)/1 var(--f-display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.nowtemp.sm{font-size:clamp(34px,10.5vw,46px);white-space:nowrap}
+.nowtxt{font-size:17px;font-weight:700}
+.nowsub{font-size:15px;opacity:.95}
+.meta{font-size:14px;opacity:.95;margin:0}
+h1{font:800 clamp(25px,7vw,34px)/1.12 var(--f-display);letter-spacing:-.01em;margin:4px 0 0;text-wrap:balance}
+
+/* ----- Iconos del tiempo ----- */
+.wi{flex:none}
+.wi .sun{stroke:var(--c-sun)} .wi .cl{stroke:var(--c-cloud)} .wi .dr{stroke:var(--c-drop)}
+.wi .dot{stroke-width:2.6}
+.hero .wi .sun{stroke:#FFD35C;fill:rgba(255,211,92,.22)}
+.hero .wi .cl{stroke:#fff;fill:rgba(255,255,255,.2)}
+.hero .wi .dr{stroke:#CDE7FF}
+.gi{flex:none;fill:var(--accent-soft);stroke:var(--ink)}
+.gi .nf{fill:none}
+
+/* ----- Estructura ----- */
+.wrap{
+  max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:22px;
+  padding-block:0 max(44px,env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.seg{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding:4px;margin-top:-30px;position:relative;z-index:1;
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 20px rgba(10,30,50,.14);
+}
+.seg button{border:0;background:transparent;border-radius:10px;padding:10px 2px;min-height:46px;min-width:0;font-weight:700;font-size:14.5px}
+@media (max-width:360px){.seg button{font-size:13px}}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+h2{font:700 19px/1.2 var(--f-display);margin:0 0 10px}
+section{min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:340px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;min-width:0}
+.card.past{opacity:.55}
+.when{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.range{font-size:13px;color:var(--muted)}
+.big{font:800 34px/1 var(--f-display);font-variant-numeric:tabular-nums;margin:10px 0 2px}
+.big.sm{font-size:28px;margin:0}
+.small{color:var(--muted);font-size:14px}
+.garment{font:700 19px/1.2 var(--f-display);margin:10px 0 8px}
+.kid-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:14px;line-height:1.25;padding:4px 10px;border-radius:999px;background:var(--accent-soft)}
+.chip.alert{background:var(--warn-soft);color:var(--warn);font-weight:700}
+.ui{flex:none}
+.note{margin:10px 0 0;padding:10px 12px;border-radius:12px;background:var(--accent-soft);font-size:15px}
+.pill{display:inline-block;font-weight:700;font-size:14px;padding:3px 10px;border-radius:999px}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.ok{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.msg{margin:0;padding:14px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+
+/* ----- Avance del finde (en Hoy y Mañana) ----- */
+.teaser{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;width:100%;text-align:left}
+.teaser .trow{display:flex;gap:16px;align-items:center}
+.ti{display:inline-flex;align-items:center;gap:5px;font-size:16px}
+.tverdict{font-weight:700;color:var(--accent)}
+.teaser .when{flex-basis:100%}
+
+/* ----- Correr ----- */
+.run-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.window{font:800 40px/1 var(--f-display);font-variant-numeric:tabular-nums;margin-top:8px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:8px;margin:14px 0}
+.stat{background:var(--bg);border-radius:10px;padding:8px 10px;min-width:0}
+.stat b{display:block;font-size:16px;line-height:1.2;white-space:nowrap}
+.stat span{font-size:12.5px;color:var(--muted)}
+.outfit{margin:0 0 14px;font-size:16px}
+.strip{display:grid;grid-template-columns:repeat(17,minmax(0,1fr));gap:3px;align-items:end;height:84px}
+.col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
+.col.past{opacity:.35}
+.bar{width:100%;border-radius:4px 4px 2px 2px}
+.bar.good{background:var(--good)} .bar.ok{background:var(--warn)} .bar.bad{background:var(--bad)}
+.col.dark .bar{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 3px,rgba(255,255,255,0) 3px 6px)}
+.col.best .bar{outline:2px solid var(--ink);outline-offset:1px}
+.col span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* ----- Finde ----- */
+.dh{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.dname{font:800 24px/1.1 var(--f-display);text-transform:capitalize}
+.dright{display:flex;align-items:center;gap:8px}
+.verdict{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:10px 0 12px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.slot{background:var(--bg);border-radius:12px;padding:10px 12px;min-width:0}
+.slotv{display:flex;align-items:center;gap:8px;margin:2px 0}
+.slotv b{font:800 22px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.lbl{margin:14px 0 6px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.rstrip{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:3px;align-items:end;height:66px}
+.rcol{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%}
+.rbar{width:100%;border-radius:3px 3px 1px 1px;background:var(--c-drop)}
+.rcol span{font-size:11px;color:var(--muted);height:13px;font-variant-numeric:tabular-nums}
+.kidline{display:flex;align-items:center;gap:10px;margin-top:14px}
+.kidline .chips{flex:1}
+.far{margin:10px 0 0}
+/* ----- Niños (violeta) y correr (azul): cada uno con su etiqueta, su cabecera y su fondo ----- */
+.tag{display:inline-block;text-align:center;font:800 12px/1 var(--f-display);letter-spacing:.09em;text-transform:uppercase;padding:6px 10px;border-radius:999px}
+.tag.kid{background:var(--kid);color:var(--on-kid)}
+.tag.run{background:var(--accent);color:var(--surface)}
+.brief{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+.brow{display:grid;grid-template-columns:74px minmax(0,1fr);gap:10px;align-items:start}
+.brow .tag{margin-top:2px}
+.brow p{margin:0;font-size:19px;line-height:1.3;font-weight:700;text-wrap:balance}
+.hero .tag{background:#fff}
+.hero .tag.kid{color:#5B3DA8}
+.hero .tag.run{color:#1B5E94}
+.sec-head{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.sec-head h2{margin:0}
+.sec-head .small{display:block;line-height:1.25}
+.badge{flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center}
+.badge.kid{background:var(--kid);color:var(--on-kid)}
+.badge.run{background:var(--accent);color:var(--surface)}
+.badge .gi{fill:none;stroke:currentColor}
+.kidsec .card{background:var(--kid-soft);border-color:transparent}
+.kidsec .gi{fill:var(--surface)}
+.kidsec .chip{background:var(--surface)}
+.kidsec .note{background:var(--kid-soft)}
+.runsec .card{background:var(--run-soft);border-color:transparent}
+.runsec .stat{background:var(--surface)}
+.avbtn{margin-left:auto;font:inherit;font-weight:700;font-size:14px;border:0;border-radius:999px;padding:8px 14px;min-height:40px;background:var(--kid);color:var(--on-kid);cursor:pointer}
+.aved{background:var(--kid-soft);border-radius:18px;padding:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:12px}
+.avprev{max-width:230px;margin:0 auto}
+.avtabs,.avopts{display:flex;flex-wrap:wrap;gap:6px}
+.avrow{display:flex;flex-direction:column;gap:6px}
+.avlbl{font-size:13px;font-weight:700;color:var(--muted)}
+.avname{font:inherit;padding:10px 12px;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.sw{width:40px;height:40px;border-radius:50%;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);cursor:pointer}
+.sw[aria-pressed="true"]{border-color:var(--ink);outline:2px solid var(--surface);outline-offset:-5px}
+.aved .chip{background:var(--surface);cursor:pointer}
+.aved .chip[aria-pressed="true"]{background:var(--kid);color:var(--on-kid);font-weight:700}
+.avdone{font:inherit;font-weight:700;border:0;border-radius:12px;min-height:46px;background:var(--ink);color:var(--surface);cursor:pointer}
+.mrows{display:flex;flex-direction:column;gap:10px}
+.mrow{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:8px;align-items:center;background:var(--kid-soft);border-radius:18px;padding:10px 12px}
+.mrow.past{opacity:.55}
+.pair{width:100%;height:auto;display:block}
+.minfo{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+.mtop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;width:100%}
+.figtemp{font:800 36px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.figword{font:700 18px/1.15 var(--f-display)}
+.fl{font-size:13px;line-height:1.25;padding:3px 9px;border-radius:999px;background:var(--surface)}
+.fl.alert{background:var(--warn-soft);color:var(--warn);font-weight:700}
+.kidlbl{display:flex;align-items:center;gap:8px;margin:14px 0 8px}
+.day .kidline{margin-top:0;padding:10px;border-radius:12px;background:var(--kid-soft)}
+.day .kidline .gi{fill:var(--surface)}
+.day .kidline .chip{background:var(--surface)}
+/* ----- Semana (neutra) y viaje (verde azulado) ----- */
+.badge.week{background:var(--ink);color:var(--surface)}
+.badge.trip{background:var(--trip);color:var(--on-trip)}
+.wcard,.tripcard{padding:8px}
+.whead,.wrow{display:grid;grid-template-columns:50px 30px 64px 52px minmax(0,1fr);gap:6px;align-items:center}
+.whead{padding:6px 8px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.whead .tag{padding:4px 8px;font-size:11px}
+.wrow{padding:9px 8px;border-top:1px solid var(--line);border-radius:10px}
+.wrow.we{background:var(--accent-soft)}
+.wrow.sel{background:var(--trip-soft)}
+.wrow.out{opacity:.5}
+.wrow.today .wd b{color:var(--accent)}
+.wd b{display:block;font-size:16px;line-height:1.1}
+.wd span{font-size:12.5px;color:var(--muted)}
+.wt b{font:800 18px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.wt span{font-size:14px;color:var(--muted);margin-left:5px;font-variant-numeric:tabular-nums}
+.wr{display:inline-flex;align-items:center;gap:3px;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.wr.hi{color:var(--c-drop);font-weight:700}
+.wk{display:flex;align-items:center;gap:6px;min-width:0;font-size:13px;line-height:1.2}
+.wk .gi{fill:var(--kid-soft)}
+.wk .ui{color:var(--warn);vertical-align:-2px}
+.wl{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tform{display:flex;gap:8px}
+.tform input{flex:1;min-width:0;font:inherit;padding:12px 14px;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.go{flex:none;border:0;border-radius:12px;padding:0 18px;min-height:48px;background:var(--trip);color:var(--on-trip);font-weight:700}
+.rec{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+button.chip{border:0;background:var(--trip-soft);color:var(--ink);min-height:34px}
+.res{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.res button{width:100%;text-align:left;display:flex;flex-direction:column;gap:1px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;min-height:50px}
+.res span{color:var(--muted);font-size:14px}
+.tripsec .card{margin-top:12px}
+.dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0 4px}
+.dates label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.dates input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0;min-height:44px}
+.packs{display:flex;flex-wrap:wrap;gap:6px}
+.packs .chip{background:var(--trip-soft)}
+.packs .chip.alert{background:var(--warn-soft)}
+.msg.err{color:var(--bad)}
+.foot{color:var(--muted);font-size:13px;margin:0}
+</style>
+</head>
+<body>
+<header class="hero" id="hero" data-sky="clear">
+  <div class="hero-in">
+    <div class="hero-top">
+      <div>
+        <div class="place" id="place">Zaragoza</div>
+        <div class="stamp" id="stamp">Cargando el tiempo…</div>
+      </div>
+      <button class="refresh" id="refresh" type="button">Actualizar</button>
+    </div>
+    <div id="hero-body"><h1>Cargando el tiempo de Zaragoza…</h1></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="seg" role="group" aria-label="Qué mirar">
+    <button type="button" id="b-today" aria-pressed="true">Hoy</button>
+    <button type="button" id="b-tomorrow" aria-pressed="false">Mañana</button>
+    <button type="button" id="b-week" aria-pressed="false">Semana</button>
+    <button type="button" id="b-weekend" aria-pressed="false">Finde</button>
+    <button type="button" id="b-trip" aria-pressed="false">Viaje</button>
+  </div>
+  <div id="view" style="display:flex;flex-direction:column;gap:22px"></div>
+  <p class="foot">Datos de Open-Meteo. La sensación térmica ya cuenta el viento y la humedad. Las horas del cole, la ciudad y los colores de los niños se cambian al principio del script.</p>
+</main>
+
+<script>
+/* ---------- Ajustes que puedes cambiar ---------- */
+const PLACE  = { name: 'Zaragoza', lat: 41.6488, lon: -0.8891 };
+const TZ     = 'Europe/Madrid';
+const SCHOOL = { entrada: 9, recreo: 11, salida: 17 };   // horas del cole (en punto)
+
+/* ---------- Datos ---------- */
+const API = 'https://api.open-meteo.com/v1/forecast?latitude=' + PLACE.lat + '&longitude=' + PLACE.lon +
+  '&current=temperature_2m,apparent_temperature,weather_code,is_day' +
+  '&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m' +
+  '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_gusts_10m_max,sunrise,sunset' +
+  '&timezone=Europe%2FMadrid&forecast_days=8&wind_speed_unit=kmh';
+const CACHE_KEY = 'tiempo-zgz-v2';
+const HASHES = { hoy: 'today', manana: 'tomorrow', semana: 'week', finde: 'weekend', viaje: 'trip' };
+
+const $ = (id) => document.getElementById(id);
+let STAMP = 'Cargando el tiempo…';
+function paintHeader() {
+  const trip = view === 'trip';
+  $('place').textContent = trip && T.place ? T.place.name : trip ? 'Viaje' : PLACE.name;
+  $('stamp').textContent = trip ? (T.place ? 'Previsión de Open-Meteo para este lugar' : 'Mira el tiempo de otro sitio') : STAMP;
+}
+function setStamp(t) { STAMP = t; paintHeader(); }
+let S = null;      // datos ya ordenados
+let NOW = null;    // fecha y hora actuales en Madrid
+let view = 'today';// 'today' | 'tomorrow' | 'week' | 'weekend' | 'trip'
+
+function nowMadrid() {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+  const g = (t) => parts.find((x) => x.type === t).value;
+  return { date: g('year') + '-' + g('month') + '-' + g('day'), h: +g('hour'), m: +g('minute') };
+}
+function addDays(date, n) { const d = new Date(date + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function dow(date) { return new Date(date + 'T12:00:00Z').getUTCDay(); } // 0 = domingo
+function daysBetween(a, b) { return Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 864e5); }
+function dateLabel(date, opts) { return new Intl.DateTimeFormat('es-ES', Object.assign({ timeZone: 'UTC' }, opts)).format(new Date(date + 'T12:00:00Z')); }
+const fmt = (n) => Math.round(n);
+const rng = (a, b) => (fmt(a) < 0 ? fmt(a) + '° a ' + fmt(b) : fmt(a) + '–' + fmt(b)) + '°';   // 5–14° o, con heladas, -3° a 14°
+const deg = (n) => fmt(n) + ' °C';
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const isRainCode = (c) => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95;
+const clock = (s) => (s ? +s.slice(11, 13) + (+s.slice(14, 16)) / 60 : null);
+
+function parse(raw) {
+  const H = raw.hourly, D = raw.daily, hours = {}, days = {};
+  H.time.forEach((t, i) => {
+    const date = t.slice(0, 10), h = +t.slice(11, 13), code = H.weather_code[i];
+    const mm = H.precipitation[i] == null ? 0 : H.precipitation[i];
+    const p = H.precipitation_probability[i];
+    const temp = H.temperature_2m[i];
+    (hours[date] = hours[date] || [])[h] = {
+      h, temp, feel: H.apparent_temperature[i] == null ? temp : H.apparent_temperature[i],
+      pp: p == null ? (isRainCode(code) ? 65 : mm >= 0.2 ? 45 : 8) : p,   // si falta la probabilidad, se estima con el código del cielo
+      mm, code, wind: H.wind_speed_10m[i] || 0, gust: H.wind_gusts_10m[i] || 0, dir: H.wind_direction_10m[i] || 0
+    };
+  });
+  D.time.forEach((date, i) => {
+    const hs = (hours[date] || []).filter(Boolean);
+    days[date] = {
+      date, code: D.weather_code[i], tmax: D.temperature_2m_max[i], tmin: D.temperature_2m_min[i],
+      pp: D.precipitation_probability_max[i] == null ? Math.max.apply(null, hs.map((x) => x.pp).concat([0])) : D.precipitation_probability_max[i],
+      mm: D.precipitation_sum[i] == null ? hs.reduce((a, x) => a + x.mm, 0) : D.precipitation_sum[i],
+      gust: D.wind_gusts_10m_max[i] || 0,
+      rise: clock(D.sunrise && D.sunrise[i]), set: clock(D.sunset && D.sunset[i]),
+      riseTxt: D.sunrise && D.sunrise[i] ? D.sunrise[i].slice(11, 16) : '', setTxt: D.sunset && D.sunset[i] ? D.sunset[i].slice(11, 16) : ''
+    };
+  });
+  const c = raw.current;
+  return { hours, days, current: c ? { temp: c.temperature_2m, feel: c.apparent_temperature, code: c.weather_code, night: c.is_day === 0 } : null };
+}
+
+/* Resumen de un tramo de horas: sensación, lluvia, viento. */
+function agg(date, h0, h1) {
+  const hs = (S.hours[date] || []).filter((x) => x && x.h >= h0 && x.h <= h1);
+  if (!hs.length) return null;
+  const sum = (k) => hs.reduce((a, x) => a + x[k], 0);
+  const avg = (k) => sum(k) / hs.length;
+  const windy = hs.reduce((a, b) => (b.gust > a.gust ? b : a));
+  const wet = hs.reduce((a, b) => (b.pp > a.pp ? b : a));
+  const mid = hs[Math.floor(hs.length / 2)];
+  return {
+    h0, h1, feelAvg: avg('feel'), tempAvg: avg('temp'), pp: Math.max.apply(null, hs.map((x) => x.pp)),
+    mm: sum('mm'), gust: windy.gust, windAvg: avg('wind'), dir: windy.dir, code: wet.pp >= 40 ? wet.code : mid.code
+  };
+}
+
+/* ---------- Iconos y textos del cielo ---------- */
+function kind(code) {
+  if (code <= 1) return 'sun';
+  if (code === 2) return 'partly';
+  if (code === 3) return 'cloud';
+  if (code === 45 || code === 48) return 'fog';
+  if (code >= 51 && code <= 67) return 'rain';
+  if (code >= 71 && code <= 77) return 'snow';
+  if (code >= 80 && code <= 82) return 'rain';
+  if (code === 85 || code === 86) return 'snow';
+  if (code >= 95) return 'storm';
+  return 'cloud';
+}
+const TEXT = { sun: 'Despejado', partly: 'Nubes y claros', cloud: 'Nublado', fog: 'Niebla', rain: 'Lluvia', snow: 'Nieve', storm: 'Tormenta' };
+const CLOUD_LO = 'M7.5 18.5h9a4 4 0 0 0 .6-7.95 5.5 5.5 0 0 0-10.6 1.5A3.25 3.25 0 0 0 7.5 18.5z';
+const CLOUD_HI = 'M7.5 14.5h9a4 4 0 0 0 .6-7.95 5.5 5.5 0 0 0-10.6 1.5A3.25 3.25 0 0 0 7.5 14.5z';
+const CLOUD_SM = 'M9.5 20h8a3.5 3.5 0 0 0 .5-6.96 4.8 4.8 0 0 0-9.2 1.3A3 3 0 0 0 9.5 20z';
+const MOON = 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z';
+const ICONS = {
+  sun: '<g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></g>',
+  moon: '<path class="sun" d="' + MOON + '"/>',
+  partly: '<g class="sun"><circle cx="8" cy="8" r="2.8"/><path d="M8 2v1.4M2 8h1.4M3.8 3.8l1 1M12.2 3.8l-1 1"/></g><path class="cl" d="' + CLOUD_SM + '"/>',
+  partlyNight: '<path class="sun" d="M10.5 3a5 5 0 1 0 3 8.6A4.2 4.2 0 0 1 10.5 3z"/><path class="cl" d="' + CLOUD_SM + '"/>',
+  cloud: '<path class="cl" d="' + CLOUD_LO + '"/>',
+  fog: '<path class="cl" d="M4 8h16M3 12h18M5 16h14M8 20h8"/>',
+  rain: '<path class="cl" d="' + CLOUD_HI + '"/><path class="dr" d="M8 17.5l-1 3M12 17.5l-1 3M16 17.5l-1 3"/>',
+  snow: '<path class="cl" d="' + CLOUD_HI + '"/><path class="dr dot" d="M8 18v.01M12 20.5v.01M16 18v.01"/>',
+  storm: '<path class="cl" d="' + CLOUD_HI + '"/><path class="sun" d="M12.5 15.5l-2.5 3.5h3l-1.5 3"/>'
+};
+function icon(code, size, night) {
+  let k = kind(code);
+  if (night && k === 'sun') k = 'moon';
+  if (night && k === 'partly') k = 'partlyNight';
+  return '<svg class="wi" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[k] + '</svg>';
+}
+function skyOf(code, night) {
+  if (night) return 'night';
+  const k = kind(code);
+  return k === 'sun' || k === 'partly' ? 'clear' : k === 'rain' ? 'rain' : k === 'storm' ? 'storm' : 'cloud';
+}
+
+/* ---------- Prendas ---------- */
+const LONG = '<path d="M11 5L4 8 2 25l4 .8L8 14l2-1v14h12V13l2 1 2 11.8 4-.8L28 8l-7-3c-1 2.2-3 3-5 3s-4-.8-5-3z"/>';
+const GARMENTS = {
+  tee: '<path d="M11 5l-8 4 3 6 4-2v14h12V13l4 2 3-6-8-4c-1 2.2-3 3-5 3s-4-.8-5-3z"/>',
+  long: LONG,
+  hood: LONG + '<path class="nf" d="M12 20h8l1.2 4.5h-10.4zM14.5 9.5v4M17.5 9.5v4"/>',
+  jacket: LONG + '<path class="nf" d="M16 8v19M12 21v3M20 21v3"/>',
+  coat: LONG + '<path class="nf" d="M11 5l5 6 5-6M16 11v16"/><path class="nf" d="M19.5 15v.01M19.5 19v.01M19.5 23v.01" stroke-width="2.4"/>'
+};
+const GMAP = { 'abrigo grueso': 'coat', 'abrigo': 'coat', 'chaqueta gruesa': 'jacket', 'sudadera': 'hood', 'manga larga': 'long', 'manga corta': 'tee' };
+function gicon(main, size) {
+  return '<svg class="gi" width="' + size + '" height="' + size + '" viewBox="0 0 32 32" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">' + GARMENTS[GMAP[main]] + '</svg>';
+}
+const UMB = '<svg class="ui" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13a9 9 0 0 1 18 0z"/><path d="M12 13v6a2 2 0 0 0 4 0"/></svg>';
+
+/* ---------- Viento: en Zaragoza manda el cierzo (noroeste) ---------- */
+const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+const compass = (d) => DIRS[Math.round(d / 45) % 8];
+const isCierzo = (d) => d >= 265 && d <= 355;
+function windLabel(dir, speed) { return (isCierzo(dir) && speed >= 20 ? 'Cierzo' : compass(dir)) + ' ' + fmt(speed) + ' km/h'; }
+
+function garment(f) {
+  if (f < 2)  return { main: 'abrigo grueso', extra: ['Gorro y guantes'] };
+  if (f < 7)  return { main: 'abrigo', extra: ['Bufanda y gorro'] };
+  if (f < 12) return { main: 'chaqueta gruesa', extra: [] };
+  if (f < 17) return { main: 'sudadera', extra: ['Vale también chaqueta fina'] };
+  if (f < 22) return { main: 'manga larga', extra: [] };
+  if (f < 27) return { main: 'manga corta', extra: [] };
+  return { main: 'manga corta', extra: ['Gorra y agua'] };
+}
+function rainNote(s) {
+  if (s.pp >= 50 || s.mm >= 1) return { alert: true, text: 'Paraguas o chubasquero' };
+  if (s.pp >= 30) return { alert: false, text: 'Chubasquero en la mochila' };
+  return null;
+}
+function windNote(s) {
+  if (s.gust >= 50) return { alert: true, text: (isCierzo(s.dir) ? 'Cierzo fuerte' : 'Viento fuerte') + ': cortavientos con capucha' };
+  if (s.gust >= 35) return { alert: false, text: 'Algo de aire: mejor cortavientos' };
+  return null;
+}
+function slotChips(a) {
+  const out = garment(a.feelAvg).extra.map((t) => ({ t, alert: false }));
+  const r = rainNote(a); if (r) out.push({ t: r.text, alert: r.alert, umb: true });
+  const w = windNote(a); if (w) out.push({ t: w.text, alert: w.alert });
+  return out.map((c) => '<span class="chip' + (c.alert ? ' alert' : '') + '">' + (c.umb ? UMB : '') + c.t + '</span>').join('');
+}
+
+/* ---------- Ropa de los niños ---------- */
+const SLOTS = [
+  { key: 'entrada', name: 'Entrada', h: SCHOOL.entrada },
+  { key: 'recreo', name: 'Recreo', h: SCHOOL.recreo },
+  { key: 'salida', name: 'Salida', h: SCHOOL.salida }
+];
+/* ---------- Los dos avatares (los eligen ellos y se guardan en el móvil) ---------- */
+const AV_KEY = 'tiempo-zgz-avatares';
+const SKINS = ['#FBDDC6', '#F3C29B', '#DDA878', '#BC8156', '#8D5A3B', '#5E3A28'];
+const HAIRS = [
+  { n: 'Negro', c: '#1F1B1D' }, { n: 'Castaño', c: '#5A3A26' }, { n: 'Caramelo', c: '#9A6A3A' }, { n: 'Rubio', c: '#D8B25C' },
+  { n: 'Pelirrojo', c: '#B4472C' }, { n: 'Rosa', c: '#E86FA0' }, { n: 'Azul', c: '#3F6FE0' }, { n: 'Plata', c: '#BFC5CD' }
+];
+const STYLES = [['larga', 'Larga'], ['coleta', 'Coleta'], ['mono', 'Moño'], ['corto', 'Corto'], ['rizos', 'Rizos'], ['rapado', 'Rapado']];
+const COLS = [
+  { n: 'Morado', h: 262, s: 58 }, { n: 'Rosa', h: 338, s: 68 }, { n: 'Rojo', h: 4, s: 66 }, { n: 'Naranja', h: 24, s: 80 },
+  { n: 'Verde', h: 150, s: 46 }, { n: 'Turquesa', h: 182, s: 62 }, { n: 'Azul', h: 218, s: 66 }, { n: 'Grafito', h: 220, s: 10 }
+];
+const KIDS = [
+  { name: 'Mayor', skin: 1, hair: 1, estilo: 'larga', col: 0, gafas: false },
+  { name: 'Pequeño', skin: 1, hair: 1, estilo: 'corto', col: 6, gafas: false }
+];
+(function loadAvatars() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(AV_KEY)); } catch (e) {}
+  if (!Array.isArray(saved)) return;
+  saved.slice(0, KIDS.length).forEach((s, i) => {
+    if (!s || typeof s !== 'object') return;
+    const k = KIDS[i];
+    if (typeof s.name === 'string' && s.name.trim()) k.name = s.name.trim().slice(0, 14);
+    if (Number.isInteger(s.skin) && s.skin >= 0 && s.skin < SKINS.length) k.skin = s.skin;
+    if (Number.isInteger(s.hair) && s.hair >= 0 && s.hair < HAIRS.length) k.hair = s.hair;
+    if (Number.isInteger(s.col) && s.col >= 0 && s.col < COLS.length) k.col = s.col;
+    if (STYLES.some((x) => x[0] === s.estilo)) k.estilo = s.estilo;
+    k.gafas = !!s.gafas;
+  });
+})();
+function saveAvatars() { try { localStorage.setItem(AV_KEY, JSON.stringify(KIDS)); } catch (e) {} }
+
+const GKEY = { 'abrigo grueso': 'coat', 'abrigo': 'coat', 'chaqueta gruesa': 'jacket', 'sudadera': 'hood', 'manga larga': 'long', 'manga corta': 'tee' };
+const INK = '#262A35';
+const hsl = (h, s, l) => {
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l), f = (n) => { const k = (n + h / 30) % 12; const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(255 * c).toString(16).padStart(2, '0'); };
+  return '#' + f(0) + f(8) + f(4);
+};
+function mixc(hex, t, to) {
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const m = (v) => Math.round(v + (to - v) * t);
+  return 'rgb(' + m(r) + ',' + m(g) + ',' + m(b) + ')';
+}
+function kidPalette(c) {
+  return { coat: hsl(c.h, c.s, 36), jacket: hsl(c.h, c.s, 42), hood: hsl(c.h, c.s, 48), long: hsl(c.h, c.s, 54), tee: hsl(c.h, Math.min(88, c.s + 8), 58),
+    acc: c.s < 20 ? '#F2C230' : hsl((c.h + 38) % 360, 86, 62), acc2: c.s < 20 ? '#D69E12' : hsl((c.h + 38) % 360, 70, 44) };
+}
+
+/* Un niño en un cuadro de 100 x 160. Se viste según la sensación térmica. */
+function kidArt(a, k) {
+  const f = a.feelAvg, g = garment(f).main, P = kidPalette(COLS[k.col]), col = P[GKEY[g]];
+  const heavy = g === 'abrigo grueso' || g === 'abrigo';
+  const shorts = f >= 22, beanie = f < 7, scarf = f < 7, mitts = f < 2, sunCap = f >= 27, cold = f < 4;
+  const rn = rainNote(a), rain = !!(rn && rn.alert), windy = a.gust >= 50;
+  const SK = SKINS[k.skin], SKD = mixc(SKINS[k.skin], 0.13, 0), HR = HAIRS[k.hair].c, HRD = mixc(HR, 0.28, 0), HRL = mixc(HR, 0.32, 255);
+  const dk = 'rgba(0,0,0,.17)', pants = '#303749', cuff = '#222836', colD = mixc(col, 0.16, 0), colL = mixc(col, 0.2, 255);
+  const hand = mitts ? P.acc : SK, handR = mitts ? 5.8 : 4.6;
+  const wide = heavy ? 13 : 10;
+  let s = '<g transform="translate(0 10)"><ellipse cx="50" cy="146.5" rx="26" ry="3.2" fill="rgba(0,0,0,.13)"/>';
+
+  // paraguas
+  if (rain) s += '<path d="M6 8C6-14 94-14 94 8 87 3 80 3 73 8 66 3 58 3 50 8 42 3 34 3 27 8 20 3 13 3 6 8Z" fill="#3B82C4"/>' +
+    '<path d="M50-12V6M50-12C42-6 33 0 27 8M50-12C58-6 67 0 73 8" stroke="rgba(255,255,255,.45)" stroke-width="1.5" fill="none"/><circle cx="50" cy="-12.5" r="2.2" fill="#2A62A0"/>';
+
+  // pelo que va detrás de la cabeza
+  if (k.estilo === 'coleta') s += '<path d="M63 10C86 0 92 32 80 54C78 58 75 60 73 61C77 46 76 28 64 21Z" fill="' + HR + '"/>';
+  if (k.estilo === 'mono' && !beanie) s += '<circle cx="50" cy="4" r="8" fill="' + HR + '"/><path d="M45 1Q50-2 55 1" stroke="' + HRL + '" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".6"/>';
+  if (k.estilo === 'rizos' && !beanie) s += '<g fill="' + HR + '"><circle cx="35" cy="17" r="7.5"/><circle cx="42" cy="8.5" r="8.5"/><circle cx="52" cy="6" r="8.5"/><circle cx="61" cy="9" r="8.5"/><circle cx="66" cy="18" r="7.5"/><circle cx="33.5" cy="26" r="6"/><circle cx="66.5" cy="26" r="6"/></g>';
+
+  // piernas
+  s += '<rect x="33" y="86" width="34" height="14" rx="5" fill="' + pants + '"/>';
+  if (shorts) s += '<rect x="35" y="104" width="12" height="30" rx="5" fill="' + SK + '"/><rect x="53" y="104" width="12" height="30" rx="5" fill="' + SK + '"/>' +
+    '<rect x="32" y="88" width="18" height="22" rx="6" fill="' + pants + '"/><rect x="50" y="88" width="18" height="22" rx="6" fill="' + pants + '"/><path d="M33 105H49M51 105H67" stroke="' + P.acc + '" stroke-width="2.2"/>';
+  else s += '<path d="M33 88H49L47.5 138H35.5Z" fill="' + pants + '" stroke="' + pants + '" stroke-width="3" stroke-linejoin="round"/><path d="M67 88H51L52.5 138H64.5Z" fill="' + pants + '" stroke="' + pants + '" stroke-width="3" stroke-linejoin="round"/>' +
+    '<rect x="35" y="130" width="13" height="8" rx="3.5" fill="' + cuff + '"/><rect x="52" y="130" width="13" height="8" rx="3.5" fill="' + cuff + '"/>';
+  // zapatillas o botas
+  const shoe = rain
+    ? '<path d="M34 119H48L47.6 141Q48 146 44 146.5H31Q28 146.5 28.7 143Q30 140 34 139Z" fill="#F2C230"/><path d="M34 119H48V123.5H34Z" fill="#DDA51A"/>'
+    : '<path d="M34 136H48V142Q48 145.5 44.5 145.5H31Q28 145.5 28.6 142.8Q29.5 140 34 138.4Z" fill="#F6F6F4"/><path d="M28.6 143Q28.4 147.4 32 147.4H45.5Q48.8 147.4 48.2 143Z" fill="' + P.acc2 + '"/><path d="M33 141.5Q38.5 139.4 44 141.5" stroke="' + P.acc + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+  s += '<g>' + shoe + '</g><g transform="translate(100 0) scale(-1 1)">' + shoe + '</g>';
+
+  // brazos
+  if (g === 'manga corta') {
+    [[31, 55, 28, 66, 28, 64, 23, 88, 22.5, 94], [69, 55, 72, 66, 72, 64, 77, 88, 77.5, 94]].forEach((p) => {
+      s += '<path d="M' + p[0] + ' ' + p[1] + 'L' + p[2] + ' ' + p[3] + '" stroke="' + SK + '" stroke-width="8" stroke-linecap="round" fill="none"/>' +
+        '<path d="M' + p[4] + ' ' + p[5] + 'L' + p[6] + ' ' + p[7] + '" stroke="' + SK + '" stroke-width="7.4" stroke-linecap="round" fill="none"/>' +
+        '<path d="M' + p[0] + ' ' + p[1] + 'L' + (p[0] + (p[2] - p[0]) * 0.8) + ' ' + (p[1] + (p[3] - p[1]) * 0.8) + '" stroke="' + col + '" stroke-width="11.5" stroke-linecap="round" fill="none"/>' +
+        '<circle cx="' + p[8] + '" cy="' + p[9] + '" r="' + handR + '" fill="' + hand + '"/>';
+    });
+  } else {
+    [[31, 55, 23, 88, 22.4, 94.5], [69, 55, 77, 88, 77.6, 94.5]].forEach((p) => {
+      s += '<path d="M' + p[0] + ' ' + p[1] + 'L' + p[2] + ' ' + p[3] + '" stroke="' + col + '" stroke-width="' + wide + '" stroke-linecap="round" fill="none"/>' +
+        '<path d="M' + (p[2] + (p[0] < 50 ? -0.8 : 0.8)) + ' ' + (p[3] - 3) + 'L' + (p[2] + (p[0] < 50 ? 0 : 0)) + ' ' + (p[3] + 1) + '" stroke="' + colD + '" stroke-width="' + (wide + 0.4) + '" stroke-linecap="round" fill="none"/>' +
+        '<circle cx="' + p[4] + '" cy="' + p[5] + '" r="' + handR + '" fill="' + hand + '"/>';
+    });
+  }
+
+  // cuerpo
+  const body = puffer(g) ? 'M28 49Q50 42 72 49L72.5 101Q50 104.5 27.5 101Z' : g === 'abrigo' ? 'M29 49Q50 43 71 49L73 108Q50 111.5 27 108Z' : 'M31 50Q50 44 69 50L67.5 94Q50 97.5 32.5 94Z';
+  function puffer(x) { return x === 'abrigo grueso'; }
+  s += '<path d="' + body + '" fill="' + col + '" stroke="' + col + '" stroke-width="2" stroke-linejoin="round"/>';
+  // cuello
+  s += '<rect x="45" y="36" width="10" height="17" rx="4.5" fill="' + SKD + '"/>';
+  if (g === 'abrigo') s += '<path d="M36 46L50 70L45.5 48Z" fill="' + colL + '"/><path d="M64 46L50 70L54.5 48Z" fill="' + colL + '"/><path d="M50 70V109" stroke="' + dk + '" stroke-width="1.8"/>' +
+    '<circle cx="55.5" cy="80" r="2" fill="#fff"/><circle cx="55.5" cy="92" r="2" fill="#fff"/><circle cx="55.5" cy="103" r="2" fill="#fff"/><path d="M34 98H44M56 98H66" stroke="' + dk + '" stroke-width="1.8" stroke-linecap="round"/>';
+  else if (g === 'abrigo grueso') s += '<path d="M28 63H72M27.6 77H72.4M27.4 91H72.6" stroke="' + dk + '" stroke-width="1.8"/><path d="M50 56V103" stroke="' + dk + '" stroke-width="2"/>' +
+    '<path d="M37 44H63L64.5 52Q50 58 35.5 52Z" fill="' + colD + '"/><path d="M28 100H72" stroke="' + colD + '" stroke-width="5" stroke-linecap="round"/>';
+  else if (g === 'chaqueta gruesa') s += '<path d="M39 46H61V53Q50 57.5 39 53Z" fill="' + colD + '"/><path d="M50 55V93" stroke="' + dk + '" stroke-width="2"/><path d="M36 82H45M55 82H64" stroke="' + dk + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<path d="M32.4 90H67.6L67.5 94Q50 97.5 32.5 94Z" fill="' + colD + '"/><circle cx="59" cy="65" r="3.4" fill="#fff" opacity=".9"/>';
+  else if (g === 'sudadera') s += '<path d="M36 47Q50 60 64 47Q65 58 50 64Q35 58 36 47Z" fill="' + colD + '"/><path d="M41 49Q50 56 59 49" stroke="' + dk + '" stroke-width="4" fill="none" stroke-linecap="round"/>' +
+    '<path d="M46 60V75M54 60V75" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="46" cy="76" r="1.7" fill="#fff"/><circle cx="54" cy="76" r="1.7" fill="#fff"/>' +
+    '<path d="M38 80H62L65 91H35Z" fill="' + dk + '"/><path d="M32.4 90H67.6L67.5 94.4Q50 97.8 32.5 94.4Z" fill="' + colD + '"/>';
+  else if (g === 'manga larga') s += '<path d="M31.6 68H68.4M31.4 76H68.6" stroke="' + colL + '" stroke-width="3.6"/><path d="M42 49.5Q50 56 58 49.5" stroke="' + colD + '" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  else s += '<path d="M42 49.5Q50 56.5 58 49.5" stroke="' + colD + '" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M52.5 61L45.5 72H51L47.5 83L56 70.5H50.6Z" fill="#fff" opacity=".92"/>';
+  // bufanda
+  if (scarf) s += '<path d="M36 44Q50 56 64 44L65.5 53Q50 64 34.5 53Z" fill="' + P.acc + '"/><path d="M42 49V58M50 52V61M58 49V58" stroke="' + P.acc2 + '" stroke-width="2.2"/>' +
+    '<rect x="55" y="55" width="10" height="27" rx="4.5" fill="' + P.acc2 + '"/><path d="M55 64H65M55 71H65" stroke="' + P.acc + '" stroke-width="2"/>';
+
+  // pelo largo (sobre los hombros)
+  if (k.estilo === 'larga') s += '<path d="M33 24C29 2 71 2 67 24C69 38 72 52 70 66Q66 70.5 62 66L58.5 46H41.5L38 66Q34 70.5 30 66C28 52 31 38 33 24Z" fill="' + HR + '"/>';
+
+  // cabeza
+  s += '<circle cx="35.4" cy="26.5" r="3.3" fill="' + SK + '"/><circle cx="64.6" cy="26.5" r="3.3" fill="' + SK + '"/>' +
+    '<path d="M35.5 22C35.5 8 64.5 8 64.5 22C64.5 34 58.5 42.5 50 42.5C41.5 42.5 35.5 34 35.5 22Z" fill="' + SK + '"/>';
+  // pelo delante
+  if (!beanie) {
+    if (k.estilo === 'larga') s += '<path d="M33.5 26C30.5 2 69.5 2 66.5 26C65.5 19 62 15 55 13.4C50 17.5 41 18.5 33.5 26Z" fill="' + HR + '"/><path d="M42 12Q50 9 58 12" stroke="' + HRL + '" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"/>';
+    else if (k.estilo === 'coleta' || k.estilo === 'mono') s += '<path d="M34 24.5C32.5 4.5 67.5 4.5 66 24.5C63.5 16 57.5 12.4 50 12.4C42.5 12.4 36.5 16 34 24.5Z" fill="' + HR + '"/><path d="M42 12Q50 9 58 12" stroke="' + HRL + '" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"/>';
+    else if (k.estilo === 'corto') s += '<path d="M33.5 26C30 3 70 3 66.5 26C65 20 62 16.5 57 15.5C52 12 44 13.5 40 15C36.5 16.5 34.5 20 33.5 26Z" fill="' + HR + '"/><path d="M43 8C45 0 56 -1 60 5C55 4.6 51 7 50 11Z" fill="' + HR + '"/><path d="M43 11Q48 8.5 54 9" stroke="' + HRL + '" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".55"/>';
+    else if (k.estilo === 'rizos') s += '<path d="M35 21C37 12 63 12 65 21C60 16.6 40 16.6 35 21Z" fill="' + HR + '"/>';
+    else s += '<path d="M34.5 22C33 9 67 9 65.5 22C62 16.5 38 16.5 34.5 22Z" fill="' + HR + '" opacity=".88"/>';
+  }
+  if (k.estilo === 'coleta' && !beanie) s += '<circle cx="64.6" cy="13" r="3.2" fill="' + P.acc + '"/>';
+  if (k.estilo === 'mono' && !beanie) s += '<path d="M43.5 10.5Q50 14 56.5 10.5" stroke="' + P.acc + '" stroke-width="3" fill="none" stroke-linecap="round"/>';
+
+  // cara
+  const mouth = cold ? '<path d="M46.4 36.2Q48 34.4 49.2 36.2T52 36.2T53.6 35.8" stroke="' + INK + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>'
+    : sunCap ? '<path d="M45.5 34.6Q50 39.6 54.5 34.6Z" fill="' + INK + '"/>'
+    : '<path d="M46.4 35.6Q50 38.4 53.6 35.6" stroke="' + INK + '" stroke-width="1.7" fill="none" stroke-linecap="round"/>';
+  s += '<ellipse cx="44.4" cy="26.6" rx="1.7" ry="2.3" fill="' + INK + '"/><ellipse cx="55.6" cy="26.6" rx="1.7" ry="2.3" fill="' + INK + '"/>' +
+    '<path d="M41 21.6Q44.2 19.8 47.4 21.4M52.6 21.4Q55.8 19.8 59 21.6" stroke="' + HRD + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
+    '<path d="M50.4 28.4Q51.6 31 49.6 31.5" stroke="' + SKD + '" stroke-width="1.3" fill="none" stroke-linecap="round"/>' + mouth;
+  if (cold) s += '<circle cx="50" cy="31.2" r="1.9" fill="#E5606B" opacity=".55"/>';
+  if (k.gafas) s += '<g fill="rgba(255,255,255,.2)" stroke="' + INK + '" stroke-width="1.5"><rect x="39.2" y="22" width="10" height="9" rx="3.6"/><rect x="50.8" y="22" width="10" height="9" rx="3.6"/></g>' +
+    '<path d="M49.2 25.8Q50 24.8 50.8 25.8M39.2 25.4L35.6 24.6M60.8 25.4L64.4 24.6" stroke="' + INK + '" stroke-width="1.4" fill="none" stroke-linecap="round"/>';
+  // gorro y gorra
+  if (beanie) s += '<path d="M33.3 21C31.5 2 68.5 2 66.7 21Z" fill="' + P.acc + '"/><rect x="32.5" y="16.5" width="35" height="8.5" rx="4.2" fill="' + P.acc2 + '"/><path d="M38 17V24M44 17V24M50 17V24M56 17V24M62 17V24" stroke="rgba(0,0,0,.14)" stroke-width="1.4"/><circle cx="50" cy="3.6" r="5.4" fill="#fff"/><circle cx="48.4" cy="2.4" r="2" fill="#EAEFF4"/>';
+  if (sunCap) s += '<path d="M33.6 17C33 1.5 67 1.5 66.4 17Z" fill="#2D8CCB"/><path d="M31 16.6Q50 12 69 16.6Q71.5 20.6 50 20.4Q28.5 20.6 31 16.6Z" fill="#1E6AA5"/><circle cx="50" cy="3.2" r="2" fill="#1E6AA5"/>';
+
+  s += '</g>';
+  // lluvia y viento
+  if (rain) s += '<path d="M6 48L3.5 56M96 44L93.5 52M9 78L6.5 86M95 76L92.5 84M4 108L1.5 116M97 110L94.5 118" stroke="#5AA9E6" stroke-width="2.2" stroke-linecap="round"/>';
+  if (windy) s += '<path d="M2 84Q12 77 22 84M-2 98Q10 90 22 98" stroke="#8FA3B2" stroke-width="2.2" fill="none" stroke-linecap="round"/>';
+  return s;
+}
+/* Los dos niños juntos, la mayor a la izquierda. */
+function pairSvg(a) {
+  const g = garment(a.feelAvg).main;
+  const kids = KIDS.map((k, i) => '<g transform="' + (i === 0 ? 'translate(4 0)' : 'translate(114 15) scale(.9)') + '">' + kidArt(a, k) + '</g>').join('');
+  return '<svg class="pair" viewBox="0 -2 212 162" role="img" aria-label="' + KIDS[0].name + ' y ' + KIDS[1].name + ' vestidos con ' + g + '">' + kids + '</svg>';
+}
+
+
+/* ---------- Editor de avatares ---------- */
+const AVS = { open: false, sel: 0 };
+function avatarEditor() {
+  const k = KIDS[AVS.sel], on = (c) => (c ? 'true' : 'false');
+  const tabs = KIDS.map((x, i) => '<button type="button" class="chip btn avtab" data-act="avsel" data-i="' + i + '" aria-pressed="' + on(i === AVS.sel) + '">' + esc(x.name) + '</button>').join('');
+  const sw = (field, list, cur, label, bg) => '<div class="avopts">' + list.map((v, i) => '<button type="button" class="sw" data-act="avset" data-f="' + field + '" data-v="' + i + '" aria-pressed="' + on(i === cur) + '" aria-label="' + label + ' ' + (i + 1) + '" style="background:' + bg(v) + '"></button>').join('') + '</div>';
+  const row = (l, inner) => '<div class="avrow"><span class="avlbl">' + l + '</span>' + inner + '</div>';
+  return '<div class="aved">' +
+    pairSvg({ feelAvg: 14, pp: 0, mm: 0, gust: 0 }).replace('class="pair"', 'class="pair avprev"') +
+    '<div class="avtabs">' + tabs + '</div>' +
+    row('Nombre', '<input id="avname" class="avname" maxlength="14" value="' + esc(k.name) + '" autocomplete="off">') +
+    row('Piel', sw('skin', SKINS, k.skin, 'Piel', (v) => v)) +
+    row('Peinado', '<div class="avopts">' + STYLES.map((s2) => '<button type="button" class="chip btn" data-act="avstyle" data-v="' + s2[0] + '" aria-pressed="' + on(k.estilo === s2[0]) + '">' + s2[1] + '</button>').join('') + '</div>') +
+    row('Color de pelo', sw('hair', HAIRS, k.hair, 'Pelo', (v) => v.c)) +
+    row('Color de ropa', sw('col', COLS, k.col, 'Ropa', (v) => hsl(v.h, v.s, 48))) +
+    row('Gafas', '<div class="avopts"><button type="button" class="chip btn" data-act="avglass" data-v="0" aria-pressed="' + on(!k.gafas) + '">Sin gafas</button><button type="button" class="chip btn" data-act="avglass" data-v="1" aria-pressed="' + on(k.gafas) + '">Con gafas</button></div>') +
+    '<button type="button" class="avdone" data-act="avdone">Listo</button></div>';
+}
+
+function figLines(a, isLast, day) {
+  const out = garment(a.feelAvg).extra.map((t) => ({ t: t.replace('Vale también chaqueta fina', 'O chaqueta fina'), alert: false }));
+  const r = rainNote(a); if (r) out.push({ t: r.alert ? 'Paraguas y botas' : 'Chubasquero en la mochila', alert: r.alert });
+  const w = windNote(a); if (w) out.push({ t: w.alert ? 'Cortavientos con capucha' : 'Cortavientos', alert: w.alert });
+  if (isLast && day && day.set != null && day.set - a.h0 <= 1.1) out.push({ t: 'Anochece a las ' + day.setTxt, alert: false });
+  return out;
+}
+/* Una fila por momento del cole: los dos niños a la izquierda y los datos a la derecha. */
+function momentRow(slot, a, past, day) {
+  const lines = figLines(a, slot.key === 'salida', day);
+  return '<article class="mrow' + (past ? ' past' : '') + '">' + pairSvg(a) +
+    '<div class="minfo"><div class="mtop"><div><div class="when">' + slot.name + '</div><div class="range">' + slot.h + ' h' + (past ? ' · ya pasó' : '') + '</div></div>' + icon(a.code, 28, false) + '</div>' +
+    '<div class="figtemp">' + fmt(a.feelAvg) + '°</div>' +
+    '<div class="figword">' + cap(garment(a.feelAvg).main) + '</div>' +
+    lines.map((l) => '<div class="fl' + (l.alert ? ' alert' : '') + '">' + l.t + '</div>').join('') + '</div></article>';
+}
+
+function kidsSummary(ks) {
+  const live = ks.filter((k) => !k.past);
+  if (!live.length) return 'El cole ya ha pasado. Mira mañana.';
+  const when = ['a la entrada', 'en el recreo', 'a la salida'];
+  const groups = [];
+  live.forEach((k) => {
+    const g = garment(k.a.feelAvg).main, last = groups[groups.length - 1];
+    if (last && last.g === g) last.idx.push(k.i); else groups.push({ g, idx: [k.i] });
+  });
+  const phrase = (idx) => (idx.length === 3 ? 'todo el día' : idx.length === 2 ? (idx[0] === 0 ? 'por la mañana' : 'desde el recreo') : when[idx[0]]);
+  const parts = groups.map((x) => x.g + ' ' + phrase(x.idx));
+  let s = cap(parts.length > 1 ? parts.slice(0, -1).join(', ') + ' y ' + parts[parts.length - 1] : parts[0]);
+  if (live.some((k) => rainNote(k.a) && rainNote(k.a).alert)) s += '. Lleva paraguas.';
+  else if (live.some((k) => rainNote(k.a))) s += '. Puede chispear.';
+  else s += '.';
+  return s;
+}
+function runSummary(date, isToday) {
+  const r = bestRun(date, isToday);
+  if (!r) return 'Por hoy ya no quedan horas. Mira mañana.';
+  const a = r.best.a, b = r.best.b;
+  const bd = band(r.best.sc), tramo = a.h + ' a ' + (b.h + 1) + ' h';
+  const night = a.dark || b.dark ? ' Aún es de noche.' : '';
+  if (bd === 'bad') return 'Mejor evitar. Lo menos malo: de ' + tramo + '.' + night;
+  return 'Mejor de ' + tramo + '. ' + RUN_VERDICT[bd] + '.' + night;
+}
+
+/* ---------- Salir a correr ---------- */
+const isDark = (day, h) => day && day.rise != null && (h + 1 <= day.rise || h >= day.set);
+function runScore(x, dark) {
+  let p = dark ? 10 : 0;
+  if (x.feel < 6) p += (6 - x.feel) * 5; else if (x.feel > 13) p += (x.feel - 13) * 6;
+  p += x.pp * 0.5 + x.mm * 15;
+  if (x.gust > 25) p += (x.gust - 25) * 0.8;
+  return Math.max(0, Math.min(100, Math.round(100 - p)));
+}
+const band = (s) => (s >= 70 ? 'good' : s >= 45 ? 'ok' : 'bad');
+const RUN_VERDICT = { good: 'Buen momento', ok: 'Regular', bad: 'Mejor evitar' };
+function outfit(f) {
+  if (f < 3)  return 'Mallas largas, térmica de manga larga, guantes y buff.';
+  if (f < 9)  return 'Mallas largas y camiseta de manga larga.';
+  if (f < 15) return 'Camiseta de manga larga fina y pantalón corto.';
+  if (f < 21) return 'Camiseta de manga corta y pantalón corto.';
+  return 'Tirantes y pantalón corto. Lleva agua y gorra, y evita las horas centrales.';
+}
+function bestRun(date, isToday) {
+  const dayInfo = S.days[date];
+  const hrs = (S.hours[date] || []).filter((x) => x && x.h >= 6 && x.h <= 22).map((x) => {
+    const dark = isDark(dayInfo, x.h);
+    return Object.assign({ dark, score: runScore(x, dark) }, x);
+  });
+  const first = isToday ? NOW.h + (NOW.m >= 30 ? 1 : 0) : 6;
+  let best = null;
+  for (let i = 0; i < hrs.length - 1; i++) {
+    if (hrs[i].h < first) continue;
+    const sc = (hrs[i].score + hrs[i + 1].score) / 2;
+    if (!best || sc > best.sc + 0.01) best = { sc, a: hrs[i], b: hrs[i + 1] };
+  }
+  return best ? { hrs, first, best } : null;
+}
+function renderRun(date, isToday) {
+  const r = bestRun(date, isToday);
+  if (!r) return '<p class="msg">Por hoy ya no quedan horas para salir. Mira mañana.</p>';
+  const { hrs, first, best } = r;
+
+  const pair = [best.a, best.b];
+  const feel = (best.a.feel + best.b.feel) / 2;
+  const pp = Math.max(best.a.pp, best.b.pp);
+  const gust = Math.max(best.a.gust, best.b.gust);
+  const wind = (best.a.wind + best.b.wind) / 2;
+  const dir = best.a.gust >= best.b.gust ? best.a.dir : best.b.dir;
+  const bd = band(best.sc);
+  let tips = outfit(feel);
+  if (pp >= 50) tips += ' Cortavientos impermeable.';
+  if (gust >= 45 && isCierzo(dir)) tips += ' Con cierzo fuerte, sal contra el viento para volver con él a favor.';
+  if (best.a.dark || best.b.dark) tips += ' Aún es de noche: lleva frontal o algo reflectante.';
+
+  const bars = hrs.map((x) => {
+    const inBest = pair.indexOf(x) !== -1;
+    return '<div class="col' + (x.h < first ? ' past' : '') + (x.dark ? ' dark' : '') + (inBest ? ' best' : '') + '" title="' + x.h + ':00 · ' + fmt(x.feel) + ' °C · lluvia ' + x.pp + ' %">' +
+      '<div class="bar ' + band(x.score) + '" style="height:' + (10 + Math.round(x.score * 0.5)) + 'px"></div><span>' + x.h + '</span></div>';
+  }).join('');
+  const hasDark = hrs.some((x) => x.dark);
+
+  return '<article class="card">' +
+    '<div class="run-top"><div><div class="when">Mejor momento</div><div class="window">' + best.a.h + '–' + (best.b.h + 1) + ' h</div></div>' +
+    '<span class="pill ' + bd + '">' + RUN_VERDICT[bd] + '</span></div>' +
+    '<div class="stats">' +
+      '<div class="stat"><b>' + deg(feel) + '</b><span>Sensación</span></div>' +
+      '<div class="stat"><b>' + pp + ' %</b><span>Lluvia</span></div>' +
+      '<div class="stat"><b>' + windLabel(dir, wind) + '</b><span>Viento</span></div>' +
+    '</div>' +
+    '<p class="outfit"><b>Ponte:</b> ' + tips + '</p>' +
+    '<div class="strip" role="img" aria-label="Calidad de cada hora para correr, de 6 a 22 horas. Barra alta, mejor hora.">' + bars + '</div>' +
+    '<div class="legend"><span><i style="background:var(--good)"></i>Bien</span><span><i style="background:var(--warn)"></i>Regular</span><span><i style="background:var(--bad)"></i>Mejor evitar</span>' +
+    (hasDark ? '<span>Rayadas: de noche</span>' : '') + '<span>Con borde: tu tramo</span></div>' +
+    '</article>';
+}
+
+/* ---------- Fin de semana ---------- */
+function weekendDates() {
+  const d = dow(NOW.date);
+  const sat = d === 6 ? NOW.date : d === 0 ? addDays(NOW.date, 6) : addDays(NOW.date, 6 - d);
+  return { sat, sun: addDays(sat, 1), next: d === 0 };
+}
+function outing(a) {
+  let p = a.pp * 0.6 + a.mm * 8;
+  if (a.feelAvg < 6) p += (6 - a.feelAvg) * 4;
+  if (a.feelAvg > 28) p += (a.feelAvg - 28) * 6;
+  if (a.gust > 30) p += (a.gust - 30) * 1.2;
+  return Math.max(0, Math.round(100 - p));
+}
+const OUT_VERDICT = { good: 'Bueno para salir', ok: 'Aceptable', bad: 'Mejor plan de interior' };
+function outingReason(a, m, t) {
+  if (m.pp < 30 && t.pp >= 50) return 'Seco por la mañana, lluvia por la tarde';
+  if (m.pp >= 50 && t.pp < 30) return 'Lluvia por la mañana, seco por la tarde';
+  const r = [];
+  if (a.pp >= 50) r.push('lluvia probable'); else if (a.pp >= 30) r.push('puede llover');
+  if (a.feelAvg < 6) r.push('frío'); else if (a.feelAvg > 28) r.push('calor');
+  if (a.gust >= 45) r.push(isCierzo(a.dir) ? 'cierzo fuerte' : 'viento fuerte');
+  return r.length ? cap(r.join(', ')) : 'Seco y sin viento fuerte';
+}
+function dayInfo(date) {
+  const d = S.days[date], m = agg(date, 10, 14), t = agg(date, 15, 19), o = agg(date, 10, 19);
+  if (!d || !m || !t || !o) return null;
+  const sm = outing(m), st = outing(t);
+  const sc = Math.round(0.65 * Math.max(sm, st) + 0.35 * Math.min(sm, st));   // un buen tramo del día cuenta más que uno malo
+  return { date, d, m, t, o, sc, bd: band(sc), reason: outingReason(o, m, t), ahead: daysBetween(NOW.date, date) };
+}
+function weekendInfo() {
+  const w = weekendDates(), a = dayInfo(w.sat), b = dayInfo(w.sun);
+  if (!a || !b) return null;
+  let hl, short;
+  if (Math.max(a.sc, b.sc) < 45) { hl = 'Los dos días vienen mal para salir.'; short = 'Mal tiempo los dos días'; }
+  else if (Math.abs(a.sc - b.sc) < 10) {
+    if (Math.min(a.sc, b.sc) >= 70) { hl = 'Los dos días valen para salir.'; short = 'Valen los dos días'; }
+    else { hl = 'Los dos días son parecidos.'; short = 'Días parecidos'; }
+  } else { const best = a.sc > b.sc ? 'sábado' : 'domingo'; hl = 'Mejor día para salir: ' + best + '.'; short = 'Mejor: ' + best; }
+  return { w, a, b, hl, short, title: w.next ? 'Próximo fin de semana' : 'Este fin de semana', better: a.sc >= b.sc ? a : b };
+}
+function weekendCard(di) {
+  const { date, d, m, t, o } = di;
+  const g = garment(o.feelAvg);
+  const hrs = (S.hours[date] || []).filter((x) => x && x.h >= 8 && x.h <= 20);
+  const bars = hrs.map((x) => '<div class="rcol" title="' + x.h + ':00 · lluvia ' + x.pp + ' %"><div class="rbar" style="height:' + (4 + Math.round(x.pp * 0.42)) + 'px;opacity:' + (0.35 + x.pp / 160).toFixed(2) + '"></div><span>' + (x.h % 2 === 0 ? x.h : '') + '</span></div>').join('');
+  const slot = (name, a) => '<div class="slot"><div class="small">' + name + '</div><div class="slotv">' + icon(a.code, 26) + '<b>' + deg(a.tempAvg) + '</b></div><div class="small">lluvia ' + a.pp + ' %</div></div>';
+  return '<article class="card day">' +
+    '<div class="dh"><div><div class="dname">' + dateLabel(date, { weekday: 'long' }) + '</div><div class="range">' + dateLabel(date, { day: 'numeric', month: 'long' }) + '</div></div>' +
+    '<div class="dright">' + icon(d.code, 40) + '<div><div class="big sm">' + rng(d.tmin, d.tmax) + '</div><div class="small">' + TEXT[kind(d.code)] + '</div></div></div></div>' +
+    '<div class="verdict"><span class="pill ' + di.bd + '">' + OUT_VERDICT[di.bd] + '</span><span class="small">' + di.reason + '</span></div>' +
+    '<div class="two">' + slot('Mañana · 10–14 h', m) + slot('Tarde · 15–19 h', t) + '</div>' +
+    '<div class="lbl">Lluvia por horas</div><div class="rstrip" role="img" aria-label="Probabilidad de lluvia de 8 a 20 horas">' + bars + '</div>' +
+    '<div class="kidlbl"><span class="tag kid">Niños</span><span class="small">Qué ponerles ese día</span></div>' +
+    '<div class="kidline">' + gicon(g.main, 40) + '<div class="chips"><span class="chip"><b>' + cap(g.main) + '</b></span>' + slotChips(o) + '</div></div>' +
+    (di.ahead >= 5 ? '<p class="small far">Previsión a ' + di.ahead + ' días: puede cambiar.</p>' : '') +
+    '</article>';
+}
+function teaser(wk) {
+  const item = (lab, di) => '<span class="ti">' + lab + icon(di.d.code, 24) + '<b>' + fmt(di.d.tmax) + '°</b></span>';
+  return '<button type="button" class="card teaser" id="to-weekend"><div class="when">' + wk.title + '</div>' +
+    '<div class="trow">' + item('Sáb ', wk.a) + item('Dom ', wk.b) + '</div><div class="tverdict">' + wk.short + ' ›</div></button>';
+}
+
+/* ---------- Pintar la página ---------- */
+function safe(fn, what) {
+  try { return fn(); } catch (e) { return '<p class="msg">No he podido mostrar ' + what + ': ' + e.message + '</p>'; }
+}
+function heroHtml(o) {
+  return '<div class="now">' + o.icon + '<div><div class="nowtemp' + (o.bigSm ? ' sm' : '') + '">' + o.big + '</div><div class="nowtxt">' + o.txt + '</div>' +
+    (o.sub ? '<div class="nowsub">' + o.sub + '</div>' : '') + '</div></div>' +
+    (o.meta ? '<p class="meta">' + o.meta + '</p>' : '') + '<h1>' + o.headline + '</h1>' + (o.brief || '');
+}
+const RUNNER = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="15.5" cy="4.5" r="1.9"/><path d="M12.5 8.5l-2.8 3 3 2.4-1.4 5.6M12.5 8.5l3.6 2.2 2.4-1.2M9.7 11.5L6 12.6M13.1 14.1l3.6 1.9-.6 4.2"/></svg>';
+function sectionHead(kindName, title, sub, extra) {
+  const ico = kindName === 'kid' ? '<svg class="gi" width="30" height="30" viewBox="0 0 32 32" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">' + GARMENTS.tee + '</svg>' :
+    kindName === 'run' ? RUNNER : kindName === 'trip' ? PIN : CAL;
+  return '<div class="sec-head"><span class="badge ' + kindName + '">' + ico + '</span><div><h2 id="h-' + kindName + '">' + title + '</h2><span class="small">' + sub + '</span></div>' + (extra || '') + '</div>';
+}
+function briefRows(kidsTxt, runTxt) {
+  return '<div class="brief"><div class="brow"><span class="tag kid">Niños</span><p>' + kidsTxt + '</p></div>' +
+    '<div class="brow"><span class="tag run">Correr</span><p>' + runTxt + '</p></div></div>';
+}
+function setHero(skyName, html) { $('hero').setAttribute('data-sky', skyName); $('hero-body').innerHTML = html; }
+
+function renderDayView() {
+  const isToday = view === 'today';
+  const date = isToday ? NOW.date : addDays(NOW.date, 1);
+  const day = S.days[date];
+  const ks = SLOTS.map((s, i) => ({ s, i, a: agg(date, s.h, s.h), past: isToday && s.h < NOW.h }));
+  if (!day || ks.some((k) => !k.a)) {
+    setHero('cloud', '<h1>Estos datos han caducado. Pulsa Actualizar con conexión.</h1>');
+    $('view').innerHTML = '';
+    return;
+  }
+  const label = (isToday ? 'Hoy ' : 'Mañana ') + dateLabel(date, { weekday: 'long' });
+  const sunTxt = day.riseTxt ? 'Amanece ' + day.riseTxt + ' · Anochece ' + day.setTxt : '';
+
+  let o;
+  if (isToday) {
+    const hr = (S.hours[date] || [])[NOW.h];
+    const c = S.current || (hr ? { temp: hr.temp, feel: hr.feel, code: hr.code, night: isDark(day, NOW.h) } : { temp: day.tmax, feel: day.tmax, code: day.code, night: false });
+    o = { icon: icon(c.code, 92, c.night), big: fmt(c.temp) + '°', txt: TEXT[kind(c.code)], sub: 'Hoy ' + rng(day.tmin, day.tmax),
+      meta: 'Sensación ' + deg(c.feel) + (sunTxt ? ' · ' + sunTxt : ''), sky: skyOf(c.code, c.night) };
+  } else {
+    o = { icon: icon(day.code, 92, false), big: rng(day.tmin, day.tmax), txt: TEXT[kind(day.code)], sub: '', meta: sunTxt, sky: skyOf(day.code, false) };
+  }
+  o.headline = label;
+  o.brief = briefRows(kidsSummary(ks), runSummary(date, isToday));
+  setHero(o.sky, heroHtml(o));
+
+  const kids = safe(() => {
+    let h = '<div class="mrows">' + ks.map((k) => momentRow(k.s, k.a, k.past, day)).join('') + '</div>';
+    const fs = ks.filter((k) => !k.past).map((k) => k.a.feelAvg);
+    const swing = fs.length > 1 ? Math.max.apply(null, fs) - Math.min.apply(null, fs) : 0;
+    if (swing >= 7) h += '<p class="note">Por capas: entre la hora más fresca y la más templada hay ' + fmt(swing) + ' grados. Que puedan quitarse la prenda de arriba.</p>';
+    return h;
+  }, 'la ropa de los niños');
+  const run = safe(() => renderRun(date, isToday), 'el mejor momento para correr');
+  const tz = safe(() => { const wk = weekendInfo(); return wk ? teaser(wk) : ''; }, 'el avance del fin de semana');
+
+  $('view').innerHTML = tz +
+    '<section class="kidsec" aria-labelledby="h-kid">' + sectionHead('kid', 'Ropa de los niños', 'Entrada, recreo y salida del cole', '<button type="button" class="avbtn" data-act="avopen" aria-expanded="' + AVS.open + '">' + (AVS.open ? 'Cerrar' : 'Personalizar') + '</button>') + (AVS.open ? avatarEditor() : '') + kids + '</section>' +
+    '<section class="runsec" aria-labelledby="h-run">' + sectionHead('run', 'Salir a correr', 'Para ti: mejor hora y qué ponerte') + run + '</section>';
+}
+
+function renderWeekendView() {
+  const wk = weekendInfo();
+  if (!wk) {
+    setHero('cloud', '<h1>Aún no hay previsión para el fin de semana.</h1>');
+    $('view').innerHTML = '';
+    return;
+  }
+  const bt = wk.better.d;
+  setHero(skyOf(bt.code, false), heroHtml({
+    icon: icon(bt.code, 92, false), big: fmt(wk.a.d.tmax) + '° · ' + fmt(wk.b.d.tmax) + '°', bigSm: true, txt: 'Máximas de sábado y domingo', sub: '',
+    meta: wk.title + ': ' + dateLabel(wk.w.sat, { day: 'numeric' }) + ' y ' + dateLabel(wk.w.sun, { day: 'numeric', month: 'long' }),
+    headline: wk.hl
+  }));
+  $('view').innerHTML = safe(() => weekendCard(wk.a) + weekendCard(wk.b), 'el fin de semana');
+}
+
+/* ---------- Semana ---------- */
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const listJoin = (a) => (a.length > 1 ? a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1] : a[0] || '');
+const DROP = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5C8.5 8 5.5 11.2 5.5 15a6.5 6.5 0 0 0 13 0c0-3.8-3-7-6.5-12.5z"/></svg>';
+const PIN = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>';
+const CAL = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>';
+
+function dayName(date) {
+  if (date === NOW.date) return 'hoy';
+  if (date === addDays(NOW.date, 1)) return 'mañana';
+  return 'el ' + dateLabel(date, { weekday: 'long' });
+}
+/* Prenda del día para los niños: la que toca en el momento más fresco del cole. */
+function kidsDayGarment(date) {
+  const fs = SLOTS.map((s) => agg(date, s.h, s.h)).filter(Boolean);
+  if (!fs.length) return null;
+  const cold = fs.reduce((m, x) => (x.feelAvg < m.feelAvg ? x : m));
+  return { g: garment(cold.feelAvg).main, rain: fs.some((x) => x.pp >= 50 || x.mm >= 1) };
+}
+function dayRow(d, o) {
+  const wd = cap(dateLabel(d.date, { weekday: 'short' }).replace('.', ''));
+  const isToday = !!o.today && d.date === o.today;
+  const sub = isToday ? 'hoy' : dateLabel(d.date, { day: 'numeric', month: 'short' }).replace('.', '');
+  const we = o.weekend !== false && (dow(d.date) === 0 || dow(d.date) === 6);
+  let last = '';
+  if (o.last === 'kids') {
+    const k = kidsDayGarment(d.date);
+    if (k) last = '<span class="wk">' + gicon(k.g, 30) + '<span>' + cap(k.g) + (k.rain ? ' ' + UMB : '') + '</span></span>';
+  } else last = '<span class="wl">' + fmt(d.gust) + ' km/h</span>';
+  return '<div class="wrow' + (we ? ' we' : '') + (isToday ? ' today' : '') + (o.sel === true ? ' sel' : o.sel === false ? ' out' : '') + '">' +
+    '<div class="wd"><b>' + wd + '</b><span>' + sub + '</span></div>' +
+    '<div title="' + TEXT[kind(d.code)] + '">' + icon(d.code, 28, false) + '</div>' +
+    '<div class="wt"><b>' + fmt(d.tmax) + '°</b><span>' + fmt(d.tmin) + '°</span></div>' +
+    '<div class="wr' + (d.pp >= 50 ? ' hi' : '') + '">' + DROP + (d.est ? '~' : '') + d.pp + '%</div>' + last + '</div>';
+}
+const whead = (lastLabel, kids) => '<div class="whead"><span>Día</span><span></span><span>Temp.</span><span>Lluvia</span>' +
+  (kids ? '<span><span class="tag kid">Niños</span></span>' : '<span>' + lastLabel + '</span>') + '</div>';
+
+function renderWeekView() {
+  const days = [];
+  for (let i = 0; i < 7; i++) { const d = S.days[addDays(NOW.date, i)]; if (d) days.push(d); }
+  if (days.length < 3) { setHero('cloud', '<h1>Aún no hay previsión para la semana.</h1>'); $('view').innerHTML = ''; return; }
+  const tmin = Math.min.apply(null, days.map((d) => d.tmin)), tmax = Math.max.apply(null, days.map((d) => d.tmax));
+  const wet = days.filter((d) => d.pp >= 50 || d.mm >= 2);
+  const cold = days.reduce((m, d) => (d.tmin < m.tmin ? d : m));
+  let hl = !wet.length ? 'Semana seca.' : wet.length >= 5 ? 'Semana de lluvia.' : 'Lluvia ' + listJoin(wet.map((d) => dayName(d.date))) + '.';
+  hl += ' Lo más frío será ' + dayName(cold.date) + ' (' + fmt(cold.tmin) + '°).';
+  setHero(skyOf(days[0].code, false), heroHtml({ icon: icon(days[0].code, 92, false), big: rng(tmin, tmax), bigSm: true, txt: 'Próximos 7 días', sub: '', meta: '', headline: hl }));
+  $('view').innerHTML = '<section class="weeksec" aria-labelledby="h-week">' + sectionHead('week', 'La semana', 'Máxima, mínima y lluvia, y qué ponerles a los niños') +
+    '<article class="card wcard">' + whead('', true) + safe(() => days.map((d) => dayRow(d, { today: NOW.date, last: 'kids' })).join(''), 'la semana') + '</article>' +
+    '<p class="small far">Los días lejanos cambian más. Para el detalle, mira Hoy o Mañana.</p></section>';
+}
+
+/* ---------- Viaje ---------- */
+const TRIP_KEY = 'tiempo-zgz-viaje';
+const GEO = (q) => 'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=6&language=es&format=json';
+const TRIP_VARS = 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_gusts_10m_max';
+const TRIP_MIN = 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_gusts_10m_max';
+const tripUrl = (p, vars, days) => 'https://api.open-meteo.com/v1/forecast?latitude=' + p.lat + '&longitude=' + p.lon +
+  '&daily=' + vars + '&timezone=auto&forecast_days=' + days + '&wind_speed_unit=kmh';
+async function fetchJson(url) {
+  const r = await fetch(url);
+  let j = null;
+  try { j = await r.json(); } catch (e) {}
+  if (!r.ok || !j || j.error || !j.daily || !j.daily.time) throw new Error('HTTP ' + r.status + (j && j.reason ? ' · ' + j.reason : ''));
+  return j;
+}
+const T = { q: '', results: null, busy: '', err: '', detail: '', place: null, days: null, from: '', to: '', recents: [] };
+try { T.recents = JSON.parse(localStorage.getItem(TRIP_KEY) || '[]').filter((p) => p && typeof p.lat === 'number' && typeof p.lon === 'number'); } catch (e) {}
+
+const placeLabel = (p) => [p.region, p.country].filter(Boolean).join(', ');
+function parseTrip(D) {
+  const col = (k) => D[k] || [];
+  return D.time.map((date, i) => {
+    const code = col('weather_code')[i], mm = col('precipitation_sum')[i] || 0, p = col('precipitation_probability_max')[i];
+    return { date, code: code == null ? 3 : code, tmax: col('temperature_2m_max')[i], tmin: col('temperature_2m_min')[i], mm, gust: col('wind_gusts_10m_max')[i] || 0,
+      pp: p == null ? (isRainCode(code) ? 65 : mm >= 1 ? 45 : 10) : p, est: p == null };
+  }).filter((d) => d.tmax != null && d.tmin != null);
+}
+async function tripSearch(q) {
+  q = (q || '').trim(); T.q = q;
+  if (q.length < 2) { T.err = 'Escribe al menos dos letras.'; T.results = null; return renderTrip(); }
+  T.busy = 'Buscando…'; T.err = ''; T.detail = ''; T.results = null; renderTrip();
+  try {
+    const r = await fetch(GEO(q));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    T.results = (j.results || []).map((x) => ({ name: x.name, region: x.admin1 || '', country: x.country || '', lat: x.latitude, lon: x.longitude }));
+    if (!T.results.length) T.err = 'No encuentro «' + q + '». Prueba con otro nombre o añade el país.';
+  } catch (e) { T.err = 'No he podido buscar. Comprueba la conexión y vuelve a intentarlo.'; T.detail = (e && e.message) || String(e); }
+  T.busy = ''; renderTrip();
+}
+async function tripPick(p) {
+  T.place = p; T.days = null; T.results = null; T.err = ''; T.detail = ''; T.busy = 'Cargando el tiempo de ' + p.name + '…'; renderTrip();
+  // Si la petición larga falla, prueba con 7 días y, si hace falta, con menos datos.
+  const tries = [[TRIP_VARS, 16], [TRIP_VARS, 7], [TRIP_MIN, 7]];
+  let j = null;
+  for (let i = 0; i < tries.length && !j; i++) {
+    try { j = await fetchJson(tripUrl(p, tries[i][0], tries[i][1])); } catch (e) { T.detail = (e && e.message) || String(e); }
+  }
+  try {
+    if (!j) throw new Error(T.detail || 'sin respuesta');
+    T.days = parseTrip(j.daily);
+    if (T.days.length < 2) throw new Error('la previsión llegó vacía');
+    const f = T.days[0].date, l = T.days[T.days.length - 1].date, d = dow(f);
+    const sat = d === 6 ? f : d === 0 ? addDays(f, 6) : addDays(f, 6 - d);   // por defecto, el próximo sábado y domingo
+    if (addDays(sat, 1) <= l) { T.from = sat; T.to = addDays(sat, 1); } else { T.from = f; T.to = addDays(f, 1); }
+    T.detail = '';
+    T.recents = [p].concat(T.recents.filter((x) => Math.abs(x.lat - p.lat) > 0.01 || Math.abs(x.lon - p.lon) > 0.01)).slice(0, 5);
+    try { localStorage.setItem(TRIP_KEY, JSON.stringify(T.recents)); } catch (e) {}
+  } catch (e) {
+    T.err = 'No he podido cargar el tiempo de ' + p.name + '.';
+    T.detail = T.detail || (e && e.message) || String(e);
+    T.place = null; T.days = null;
+  }
+  T.busy = ''; renderTrip();
+}
+function packList(ds) {
+  const tmin = Math.min.apply(null, ds.map((d) => d.tmin)), tmax = Math.max.apply(null, ds.map((d) => d.tmax));
+  const wet = ds.filter((d) => d.pp >= 50 || d.mm >= 2), windy = ds.filter((d) => d.gust >= 50);
+  const swing = Math.max.apply(null, ds.map((d) => d.tmax - d.tmin));
+  const out = [];
+  if (tmin < 2) out.push({ t: 'Abrigo grueso, gorro y guantes' });
+  else if (tmin < 7) out.push({ t: 'Abrigo y bufanda' });
+  else if (tmin < 12) out.push({ t: 'Chaqueta gruesa' });
+  else if (tmin < 17) out.push({ t: 'Sudadera o chaqueta fina' });
+  if (tmax >= 27) out.push({ t: 'Ropa fresca, gorra y crema solar' });
+  else if (tmax >= 22) out.push({ t: 'Ropa de manga corta' });
+  if (wet.length) out.push({ t: 'Paraguas o chubasquero', alert: true });
+  if (windy.length) out.push({ t: 'Cortavientos' });
+  if (swing >= 12) out.push({ t: 'Ropa por capas: hay mucha diferencia entre el día y la noche' });
+  if (!out.length) out.push({ t: 'Ropa ligera de entretiempo' });
+  return out;
+}
+function renderTrip() {
+  const typed = $('q'); if (typed) T.q = typed.value;   // no pierdas lo que ya has escrito si la página se repinta
+  const head = sectionHead('trip', 'Tiempo de viaje', 'Busca una ciudad o un pueblo');
+  const form = '<form id="tform" class="tform" autocomplete="off"><input id="q" type="search" name="q" value="' + esc(T.q) + '" placeholder="Lisboa, Benasque, Roma…" aria-label="Buscar un lugar" enterkeyhint="search"><button class="go" type="submit">Buscar</button></form>';
+  const rec = T.recents.length ? '<div class="rec"><span class="small">Recientes</span>' + T.recents.map((p, i) => '<button type="button" class="chip btn" data-act="recent" data-i="' + i + '">' + esc(p.name) + '</button>').join('') + '</div>' : '';
+  const status = T.busy ? '<p class="small far">' + esc(T.busy) + '</p>' : T.err ? '<p class="msg err">' + esc(T.err) + (T.detail ? '<br><span class="small">Detalle: ' + esc(T.detail) + '</span>' : '') + '</p>' : '';
+  const res = T.results && T.results.length ? '<ul class="res">' + T.results.map((p, i) => '<li><button type="button" data-act="pick" data-i="' + i + '"><b>' + esc(p.name) + '</b><span>' + esc(placeLabel(p)) + '</span></button></li>').join('') + '</ul>' : '';
+  let body = '';
+  if (T.place && T.days && T.days.length) {
+    const ds = T.days.filter((d) => d.date >= T.from && d.date <= T.to), use = ds.length ? ds : T.days.slice(0, 3);
+    const tmin = Math.min.apply(null, use.map((d) => d.tmin)), tmax = Math.max.apply(null, use.map((d) => d.tmax));
+    const wet = use.filter((d) => d.pp >= 50 || d.mm >= 2);
+    const first = use[0], last = use[use.length - 1];
+    const dd = (date, month) => dateLabel(date, { weekday: 'short' }).replace('.', '') + ' ' + dateLabel(date, { day: 'numeric' }) + (month ? ' de ' + dateLabel(date, { month: 'long' }) : '');
+    const sameMonth = first.date.slice(0, 7) === last.date.slice(0, 7);
+    const range = first.date === last.date ? cap(dateLabel(first.date, { weekday: 'long', day: 'numeric', month: 'long' }).replace(', ', ' ')) :
+      'Del ' + dd(first.date, !sameMonth) + ' al ' + dd(last.date, true);
+    let hl = wet.length ? 'Lluvia ' + listJoin(wet.map((d) => 'el ' + dateLabel(d.date, { weekday: 'long' }))) + '.' : 'Sin lluvia prevista.';
+    hl += ' Entre ' + fmt(tmin) + '° y ' + fmt(tmax) + '°.';
+    setHero(skyOf(first.code, false), heroHtml({ icon: icon(first.code, 92, false), big: rng(tmin, tmax), bigSm: true, txt: T.place.name, sub: '', meta: range, headline: hl }));
+    const minD = T.days[0].date, maxD = T.days[T.days.length - 1].date;
+    const chips = packList(use).map((c) => '<span class="chip' + (c.alert ? ' alert' : '') + '">' + (c.alert ? UMB : '') + c.t + '</span>').join('');
+    body = '<article class="card tripcard"><div class="dname">' + esc(T.place.name) + '</div><div class="range">' + esc(placeLabel(T.place)) + '</div>' +
+      '<div class="dates"><label for="d1">Desde<input type="date" id="d1" value="' + T.from + '" min="' + minD + '" max="' + maxD + '"></label>' +
+      '<label for="d2">Hasta<input type="date" id="d2" value="' + T.to + '" min="' + minD + '" max="' + maxD + '"></label></div>' +
+      '<div class="lbl">Qué llevar en la maleta</div><div class="packs">' + chips + '</div>' +
+      '<div class="lbl">Día a día</div>' + whead('Racha', false) +
+      safe(() => T.days.map((d) => dayRow(d, { last: 'wind', weekend: false, sel: d.date >= T.from && d.date <= T.to })).join(''), 'los días') +
+      '<p class="small far">Pasada una semana, la previsión es aproximada. El signo ~ marca una lluvia estimada.</p></article>';
+  } else {
+    setHero('clear', heroHtml({ icon: icon(2, 92, false), big: 'Viaje', bigSm: true, txt: 'El tiempo en otro sitio', sub: '', meta: '', headline: 'Busca el lugar y mira el tiempo que te espera.' }));
+  }
+  $('view').innerHTML = '<section class="tripsec" aria-labelledby="h-trip">' + head + form + rec + status + res + body + '</section>';
+}
+
+const VIEWS = ['today', 'tomorrow', 'week', 'weekend', 'trip'];
+function render() {
+  NOW = nowMadrid();
+  VIEWS.forEach((v) => $('b-' + v).setAttribute('aria-pressed', String(view === v)));
+  paintHeader();
+  if (view === 'trip') return renderTrip();
+  if (!S) return;
+  if (view === 'weekend') renderWeekendView(); else if (view === 'week') renderWeekView(); else renderDayView();
+}
+function setView(v) {
+  view = v;
+  try { history.replaceState(null, '', '#' + Object.keys(HASHES).find((k) => HASHES[k] === v)); } catch (e) {}
+  render();
+}
+
+/* ---------- Carga, caché y errores ---------- */
+const timeOf = (ms) => new Intl.DateTimeFormat('es-ES', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+const dayOf = (ms) => new Intl.DateTimeFormat('es-ES', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'short' }).format(new Date(ms));
+
+async function load() {
+  setStamp('Actualizando…');
+  try {
+    const r = await fetch(API, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const raw = await r.json();
+    S = parse(raw); S.at = Date.now();
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: S.at, raw })); } catch (e) {}
+    setStamp('Actualizado a las ' + timeOf(S.at));
+    render();
+  } catch (err) {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch (e) {}
+    if (cached && cached.raw) {
+      S = parse(cached.raw); S.at = cached.at;
+      setStamp('Sin conexión. Datos de las ' + timeOf(S.at) + ' del ' + dayOf(S.at));
+      render();
+    } else {
+      setHero('cloud', '<h1>No he podido cargar el tiempo.</h1>');
+      setStamp('Ábrela en el navegador y con conexión. Desde una vista previa no puede pedir datos.');
+    }
+  }
+}
+
+$('refresh').addEventListener('click', () => { if (view === 'trip' && T.place) tripPick(T.place); else load(); });
+$('b-today').addEventListener('click', () => setView('today'));
+$('b-tomorrow').addEventListener('click', () => setView('tomorrow'));
+$('b-week').addEventListener('click', () => setView('week'));
+$('b-weekend').addEventListener('click', () => setView('weekend'));
+$('b-trip').addEventListener('click', () => setView('trip'));
+$('view').addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('[data-act]');
+  if (b) {
+    const i = +b.getAttribute('data-i'), act = b.getAttribute('data-act');
+    if (act === 'avopen') { AVS.open = !AVS.open; render(); return; }
+    if (act === 'avdone') { AVS.open = false; render(); return; }
+    if (act === 'avsel') { AVS.sel = i; render(); return; }
+    if (act === 'avset') { KIDS[AVS.sel][b.getAttribute('data-f')] = +b.getAttribute('data-v'); saveAvatars(); render(); return; }
+    if (act === 'avstyle') { KIDS[AVS.sel].estilo = b.getAttribute('data-v'); saveAvatars(); render(); return; }
+    if (act === 'avglass') { KIDS[AVS.sel].gafas = b.getAttribute('data-v') === '1'; saveAvatars(); render(); return; }
+    if (act === 'pick' && T.results && T.results[i]) tripPick(T.results[i]);
+    if (act === 'recent' && T.recents[i]) tripPick(T.recents[i]);
+    return;
+  }
+  if (e.target.closest && e.target.closest('#to-weekend')) setView('weekend');
+});
+$('view').addEventListener('submit', (e) => { if (e.target.id === 'tform') { e.preventDefault(); tripSearch($('q').value); } });
+$('view').addEventListener('change', (e) => {
+  if (e.target.id === 'avname') { KIDS[AVS.sel].name = e.target.value.trim().slice(0, 14) || KIDS[AVS.sel].name; saveAvatars(); render(); return; }
+  if (e.target.id !== 'd1' && e.target.id !== 'd2') return;
+  const a = $('d1').value, b = $('d2').value;
+  if (a) T.from = a;
+  if (b) T.to = b;
+  if (T.to < T.from) T.to = T.from;
+  renderTrip();
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S && Date.now() - S.at > 30 * 60 * 1000) load(); });
+
+const fromHash = HASHES[(location.hash || '').replace('#', '')];
+view = fromHash || (nowMadrid().h >= 15 ? 'tomorrow' : 'today');  // por la tarde interesa más mañana
+load();
+</script>
+</body>
+</html>
